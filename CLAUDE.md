@@ -81,3 +81,9 @@ Al sincronizar, usar SIEMPRE una ruta de envío nueva: reutilizar la misma manda
 - Archivo para abrir sin la plataforma: `dist-pagina/la-roda-city-completo.html` (lleva `<meta charset>`; sin él se ven mal las tildes).
 - Trabajar en pasos pequeños y cerrados: probar, hacer commit y actualizar progreso al acabar cada uno,
   para que un corte de sesión no deje nada a medias.
+- Web pública: https://jqnlopezfernandez-crypt.github.io/La-Roda-City/ (repositorio jqnlopezfernandez-crypt/La-Roda-City,
+  se publica solo al subir a main). Subir con `python3 tools/publicar_github.py /home/claude/la-roda-city "mensaje"` y `git push`
+  desde el clon: ese script deja fuera las imágenes privadas de `public/referencias/` (el usuario no quiere publicarlas).
+- Servidor multijugador: https://la-roda-city-servidor.onrender.com (Render, plan gratuito, Blueprint `render.yaml`;
+  se despliega solo al subir a main). El flujo de Pages usa `wss://la-roda-city-servidor.onrender.com` por defecto.
+- El contenedor no llega a github.io ni a onrender.com: para comprobarlos usar WebFetch (p. ej. `/salud`).
