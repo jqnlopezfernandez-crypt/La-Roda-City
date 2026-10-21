@@ -877,3 +877,103 @@ canvas {
   .lobby-roeno { width:46px; height:96px }
   .lobby .btn { padding-top:10px; padding-bottom:10px }
 }
+
+.ov-hint { font-size:14px; opacity:.85; border-top:1px solid var(--line); padding-top:8px }
+.ov-slot .ov-card { text-align:center }
+.slot-reels { display:flex; justify-content:center; gap:10px; margin:10px 0 }
+.slot-reel {
+  width:62px; height:72px; display:grid; place-items:center; font-size:38px; font-weight:900;
+  background:#f3ead6; color:#b5332a; border-radius:12px; border:3px solid #2a1c14; box-shadow:inset 0 -6px 0 #d8ccb1
+}
+.ov-slot.won .slot-reel { background:#ffe28a; animation:slot-win .5s ease-in-out 3 }
+@keyframes slot-win { 50% { transform:translateY(-6px) } }
+@media (prefers-reduced-motion:reduce) { .ov-slot.won .slot-reel { animation:none } }
+
+/* Sabotajes: escenario con piezas que se arrastran */
+.mg-stage {
+  position:relative;
+  width:100%;
+  touch-action:none
+}
+.mg-piece {
+  position:absolute;
+  transform:translate(-50%,-50%);
+  cursor:grab;
+  touch-action:none;
+  filter:drop-shadow(0 4px 4px #0007);
+  transition:transform .15s
+}
+.mg-piece.cogido {
+  cursor:grabbing;
+  transform:translate(-50%,-50%) scale(1.12);
+  z-index:3;
+  transition:none
+}
+.mg-piece.fijo {
+  cursor:default;
+  transition:left .2s,top .2s
+}
+.mg-poop {
+  animation:mg-flota 3s ease-in-out infinite alternate;
+  pointer-events:none
+}
+.mg-poop.fuera {
+  animation:mg-pescada .5s ease-in forwards
+}
+@keyframes mg-flota {
+  from { transform:translate(-50%,-50%) rotate(-6deg) }
+  to { transform:translate(-46%,-56%) rotate(6deg) }
+}
+@keyframes mg-pescada {
+  to { transform:translate(-50%,-160%) scale(.2); opacity:0 }
+}
+.mg-net {
+  z-index:2
+}
+.mg-stage .mg-halo {
+  transition:opacity .8s
+}
+.mg-stage.arreglado .mg-halo {
+  opacity:1
+}
+.mg-stage.arreglado .mg-target {
+  display:none
+}
+.mg-stage .mg-water {
+  transition:transform 1.2s ease-out
+}
+.mg-stage.arreglado .mg-water {
+  transform:translateY(40px)
+}
+.mg-gush {
+  animation:mg-chorro .35s linear infinite alternate
+}
+.mg-gush.tapada,.mg-gap.tapada {
+  display:none
+}
+@keyframes mg-chorro {
+  to { transform:translateY(3px) }
+}
+
+/* Menú de sabotajes del impostor */
+.ov-sabotaje .ov-card { position:relative; width:min(720px,100%) }
+.sab-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px }
+.sab-opt {
+  display:grid; gap:6px; padding:6px; border-radius:14px; border:2px solid var(--line);
+  background:#0004; color:var(--text); font:inherit; font-size:13px; cursor:pointer; text-align:center
+}
+.sab-opt:hover,.sab-opt:focus-visible { border-color:#e0412f; background:#9b2f2a33; transform:translateY(-2px) }
+.sab-opt .mg-scene { box-shadow:none }
+@media (max-width:520px) { .sab-grid { grid-template-columns:1fr } .sab-opt .mg-scene { max-height:120px } }
+@media (max-height:500px) { .ov-sabotaje h2, .ov-sabotaje .ov-sub { display:none } }
+
+/* Minijuegos de sabotaje en pantallas bajas (móvil en horizontal): que quepa la escena entera */
+.ov-mg { -webkit-user-select:none; user-select:none }
+.ov-mg .mg-stage { width:min(100%, calc((100vh - 150px) * 1.38)); width:min(100%, calc((100dvh - 150px) * 1.38)); margin:0 auto }
+@media (max-height:560px) {
+  .ov-mg .ov-card { padding-top:10px; padding-bottom:8px }
+  .ov-mg h2 { font-size:18px; margin:0 32px 0 0 }
+  .ov-mg .ov-sub { display:none }
+  .ov-mg .mg-body { margin:6px 0 2px }
+  .ov-mg .mg-stage { width:min(100%, calc((100vh - 96px) * 1.38)); width:min(100%, calc((100dvh - 96px) * 1.38)) }
+}

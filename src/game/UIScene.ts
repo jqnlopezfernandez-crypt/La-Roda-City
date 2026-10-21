@@ -6,10 +6,11 @@ import { openAudioPanel } from "../ui/audioPanel";
 import { fullscreenSupported, toggleFullscreen } from "../ui/fullscreen";
 import { ROLE_INFO } from "../../shared/game/rules";
 import { input } from "./inputState";
-import type { ActionKind, Actions, TaskView, TasksInfo } from "./TownScene";
+import type { ActionKind, Actions, SabotageHud, TaskView, TasksInfo } from "./TownScene";
 import type { PointOfInterest } from "../../shared/data/pointsOfInterest";
 
 const JOY_RADIUS = 52;
+const REDUCED_MOTION_UI = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const JOY_DEADZONE = 10;
 
 type ActionButton = { c: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; bg: Phaser.GameObjects.Graphics };
@@ -47,6 +48,11 @@ export class UIScene extends Phaser.Scene {
   private roomCode = "";
   private roomHint!: Phaser.GameObjects.Text;
   private actionButtons = {} as Record<ActionKind, ActionButton>;
+  /** Cuenta atrás del sabotaje crítico. */
+  private sabBox!: Phaser.GameObjects.Container;
+  private sabBg!: Card;
+  private sabText!: Phaser.GameObjects.Text;
+  private sabPulse: Phaser.Tweens.Tween | null = null;
   private startBtn!: Phaser.GameObjects.Container;
   private startLabel!: Phaser.GameObjects.Text;
   private startBg!: Card;
@@ -122,6 +128,7 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on("tasks", this.onTasks, this);
     this.game.events.on("minimap", this.onMinimap, this);
     this.game.events.on("task-done", this.onTaskDone, this);
+    this.game.events.on("sabotage-hud", this.onSabotageHud, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off("resize", this.layout, this);
       this.game.events.off("poi-near", this.onPoiNear, this);
@@ -135,6 +142,7 @@ export class UIScene extends Phaser.Scene {
       this.game.events.off("tasks", this.onTasks, this);
       this.game.events.off("minimap", this.onMinimap, this);
       this.game.events.off("task-done", this.onTaskDone, this);
+      this.game.events.off("sabotage-hud", this.onSabotageHud, this);
     });
     // la escena del mundo se enlazó antes que esta: que repita el estado actual
     this.game.events.emit("ui-ready");
@@ -160,6 +168,36 @@ export class UIScene extends Phaser.Scene {
     make("llevar", "cesta", "Llevarse (C)", 0x8a5cc2);
     make("reportar", "megafono", "Reportar (F)", THEME.accent);
     make("emergencia", "campana", "Reunión (X)", 0x5c97ff);
+    make("saludar", "saludo", "Saludar (V)", 0x6fb2d4);
+    make("incendio", "fuego", "Incendio (G)", 0xe0702a);
+    make("apagar", "cubo", "Apagar (B)", 0x2f9cc7);
+    make("tragaperras", "moneda", "Tragaperras (T)", 0xd9b34a);
+    make("sabotear", "sabotaje", "Sabotear (Z)", 0xb5332a);
+    make("arreglar", "llave", "Arreglar (R)", 0x3fae6a);
+    // cuenta atrás del sabotaje (arriba, bajo los avisos)
+    this.sabBg = new Card(this, 16, 0x9b2f2a, 0.94);
+    this.sabText = this.add
+      .text(0, 0, "", { fontFamily: FONT, fontSize: "15px", fontStyle: "900", color: "#fff4e0", align: "center", stroke: "#3a0f0c", strokeThickness: 3 })
+      .setOrigin(0.5);
+    this.sabBox = this.add.container(0, 0, [this.sabBg, this.sabText]).setDepth(29).setVisible(false);
+  }
+
+  private onSabotageHud(h: SabotageHud) {
+    if (!h) {
+      this.sabPulse?.stop();
+      this.sabPulse = null;
+      this.sabBox.setVisible(false).setScale(1);
+      return;
+    }
+    const m = Math.floor(h.secs / 60);
+    const ss = String(h.secs % 60).padStart(2, "0");
+    this.sabText.setText(`⚠ ${h.title}  ·  ${m}:${ss}\n${h.fix} · arreglos ${h.fixes}/${h.need} (o el Conserje)`);
+    this.sabBg.setCardSize(this.sabText.width + 30, this.sabText.height + 14).setPosition(-(this.sabText.width + 30) / 2, -(this.sabText.height + 14) / 2);
+    this.sabBox.setVisible(true);
+    if (h.secs <= 10 && !this.sabPulse && !REDUCED_MOTION_UI) {
+      this.sabPulse = this.tweens.add({ targets: this.sabBox, scale: 1.08, duration: 250, yoyo: true, repeat: -1 });
+    }
+    this.layout();
   }
 
   private onActions(a: Actions) {
@@ -173,6 +211,17 @@ export class UIScene extends Phaser.Scene {
     b.llevar.c.setVisible(!!a.carry);
     b.reportar.c.setVisible(!!a.report);
     b.emergencia.c.setVisible(a.emergency);
+    b.saludar.c.setVisible(!!a.greet);
+    b.incendio.c.setVisible(a.fireWaitS >= 0);
+    b.incendio.bg.setAlpha(a.fireWaitS === 0 ? 1 : 0.4);
+    b.incendio.label.setText(a.fireWaitS > 0 ? `Fuego en ${a.fireWaitS} s` : "Incendio (G)");
+    b.apagar.c.setVisible(a.extinguish !== null);
+    b.apagar.label.setText(a.extinguishing ? "Apagando…" : "Apagar (B)");
+    b.tragaperras.c.setVisible(a.slot);
+    b.sabotear.c.setVisible(a.sabotageWaitS >= 0);
+    b.sabotear.bg.setAlpha(a.sabotageWaitS === 0 ? 1 : 0.4);
+    b.sabotear.label.setText(a.sabotageWaitS > 0 ? `Sabotaje en ${a.sabotageWaitS} s` : "Sabotear (Z)");
+    b.arreglar.c.setVisible(!!a.fix);
     this.layoutActions();
   }
 
@@ -184,7 +233,7 @@ export class UIScene extends Phaser.Scene {
     const row = height < 600;
     let x = width - 46 - 30 - 110;
     let y = height - 46 - 46 - 168;
-    for (const key of ["eliminar", "llevar", "reportar", "emergencia"] as const) {
+    for (const key of ["arreglar", "eliminar", "llevar", "reportar", "emergencia", "incendio", "sabotear", "apagar", "tragaperras", "saludar"] as const) {
       const btn = this.actionButtons[key].c;
       if (!btn.visible) continue;
       if (row) {
@@ -465,8 +514,8 @@ export class UIScene extends Phaser.Scene {
     this.tweens.add({ targets: card, alpha: 0, y: card.y - 16, delay: 1600, duration: 300, onComplete: () => card.destroy() });
   }
 
-  private onMinimap(info: { me: { x: number; y: number }; targets: { x: number; y: number }[] }) {
-    this.minimap.update(info.me, info.targets);
+  private onMinimap(info: { me: { x: number; y: number }; targets: { x: number; y: number }[]; extras?: { pos: { x: number; y: number }; color: number }[] }) {
+    this.minimap.update(info.me, info.targets, info.extras ?? []);
   }
 
   private onTasks(info: TasksInfo) {
@@ -509,6 +558,7 @@ export class UIScene extends Phaser.Scene {
     this.toast.setPosition(width / 2, 16);
     this.toastBg.setPosition(width / 2 - this.toast.width / 2, 16);
     this.roleTag.setPosition(width / 2, 52);
+    this.sabBox?.setPosition(width / 2, height < 500 ? 96 : 104);
     // la lista de misiones va debajo del recuadro de la sala
     const roomBottom = this.roomBox.visible ? this.roomBox.y + this.roomBg.h * this.roomBox.scaleY + 10 : 68;
     this.tasksBox.setPosition(16, roomBottom).setScale(width < 520 ? 0.85 : 1);

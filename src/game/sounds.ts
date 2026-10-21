@@ -298,6 +298,17 @@ export const sfx = {
       pluckNote(ctx, dest, 40, when + 0.85, 0.45);
       pluckNote(ctx, dest, 52, when + 0.85, 0.3);
     }),
+  /** Sabotaje crítico: campana a rebato (dos notas alternas, rápidas). */
+  alarma: () =>
+    playEffect(0.5, (ctx, dest, when) => {
+      for (let i = 0; i < 8; i++) bell(ctx, dest, when + i * 0.18, i % 2 ? 523 : 659, 0.42, 0.9, i % 2 ? 0.25 : -0.25);
+      cajonHit(ctx, dest, when, 0.6, true);
+    }),
+  /** Tic del reloj en los últimos segundos. */
+  tic: () =>
+    playEffect(0, (ctx, dest, when) => {
+      noiseHit(ctx, dest, when, { f: 3200, q: 2, vel: 0.22, dec: 0.025, color: "rosa" });
+    }),
   abrir: () =>
     playEffect(0.15, (ctx, dest, when) => {
       noiseSweep(ctx, dest, when, 500, 2600, 0.18, 0.08);

@@ -1,4 +1,4 @@
-import { MOVE_SEND_INTERVAL_MS, ROOM_NAME, normalizeCode } from "../../shared/net/protocol";
+import { MOVE_SEND_INTERVAL_MS, ROOM_NAME, normalizeCode, type Greeting, type SlotResult } from "../../shared/net/protocol";
 import { Callbacks, Client, type Room } from "@colyseus/sdk";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +35,10 @@ export interface PlayerStateView {
   killReadyAt?: number;
   specialLeft?: boolean;
   emergenciesLeft?: number;
+  trackedId?: string;
+  fireReadyAt?: number;
+  slotUsed?: boolean;
+  sabotageReadyAt?: number;
   tasks?: Iterable<TaskStateView>;
 }
 
@@ -58,6 +62,10 @@ export interface GameStateView {
   serverTime: number;
   tasksDone: number;
   tasksTotal: number;
+  sabotage?: string;
+  sabotageEndsAt?: number;
+  fireHeld?: string;
+  sabotageFixes?: number;
 }
 
 export type VoteResult = {
@@ -117,7 +125,18 @@ export type RemotePlayer = {
   killReadyAt: number;
   specialLeft: boolean;
   emergenciesLeft: number;
+  /** Vilchez: a quién tiene localizado. */
+  trackedId: string;
+  /** Pirómano: cuándo puede volver a prender fuego. */
+  fireReadyAt: number;
+  /** Ludópata: ya ha jugado esta ronda. */
+  slotUsed: boolean;
+  /** Impostores: cuándo se puede volver a sabotear. */
+  sabotageReadyAt: number;
 };
+
+export type Sabotage = { kind: string; endsAt: number; held: number[]; fixes: number };
+export type Fixed = { kind: string; by: string };
 
 export type Body = { id: string; x: number; y: number; victimName: string; look: number };
 
@@ -135,6 +154,10 @@ type Listener = {
   onDenied(d: ActionDenied): void;
   onVoteResult(v: VoteResult): void;
   onGameOver(g: GameOver): void;
+  onSabotage(s: Sabotage): void;
+  onGreeting(g: Greeting): void;
+  onSlot(r: SlotResult): void;
+  onFixed(f: Fixed): void;
 };
 
 type GameRoom = Room<any, GameStateView>;
@@ -170,6 +193,9 @@ export class NetSession {
     room.onMessage("denegado", (d: ActionDenied) => this.listener.onDenied?.(d));
     room.onMessage("resultado-votacion", (v: VoteResult) => this.listener.onVoteResult?.(v));
     room.onMessage("fin", (g: GameOver) => this.listener.onGameOver?.(g));
+    room.onMessage("saludo", (g: Greeting) => this.listener.onGreeting?.(g));
+    room.onMessage("premio", (r: SlotResult) => this.listener.onSlot?.(r));
+    room.onMessage("arreglado", (f: Fixed) => this.listener.onFixed?.(f));
   }
 
   static async create(name: string, look: number) {
@@ -221,6 +247,10 @@ export class NetSession {
       killReadyAt: p.killReadyAt ?? 0,
       specialLeft: !!p.specialLeft,
       emergenciesLeft: p.emergenciesLeft ?? 0,
+      trackedId: p.trackedId ?? "",
+      fireReadyAt: p.fireReadyAt ?? 0,
+      slotUsed: !!p.slotUsed,
+      sabotageReadyAt: p.sabotageReadyAt ?? 0,
     });
     cb.onAdd("players", (p: PlayerStateView, id: string) => {
       listener.onAdd?.(snapshot(p, id));
@@ -232,6 +262,19 @@ export class NetSession {
     );
     cb.onRemove("bodies", (_b: BodyStateView, id: string) => listener.onBodyRemove?.(id));
     cb.listen("phase", (phase: string) => listener.onPhase?.(phase));
+    const sabotage = () => {
+      const st = this.room.state;
+      listener.onSabotage?.({
+        kind: st.sabotage ?? "",
+        endsAt: st.sabotageEndsAt ?? 0,
+        held: (st.fireHeld ?? "").split(",").filter(Boolean).map(Number),
+        fixes: st.sabotageFixes ?? 0,
+      });
+    };
+    cb.listen("sabotage", sabotage);
+    cb.listen("fireHeld", sabotage);
+    cb.listen("sabotageEndsAt", sabotage);
+    cb.listen("sabotageFixes", sabotage);
     cb.listen("serverTime", (t: number) => {
       // Cada muestra llega con retraso (red + proceso), así que subestima la hora
       // del servidor: la MAYOR diferencia observada es la más fiable. Se deja
@@ -266,6 +309,10 @@ export class NetSession {
   send(type: "llevar" | "reportar", payload: { body: string }): void;
   send(type: "votar", payload: { target: string }): void;
   send(type: "tarea-inicio" | "tarea-fin", payload: { mission: string }): void;
+  send(type: "saludar", payload: { target: string }): void;
+  send(type: "incendio" | "tragaperras"): void;
+  send(type: "apagar", payload: { punto: number }): void;
+  send(type: "sabotear" | "arreglar-inicio" | "arreglar", payload: { kind: string }): void;
   send(type: string, payload?: unknown) {
     this.room.send(type, payload);
   }

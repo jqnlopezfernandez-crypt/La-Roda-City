@@ -16,10 +16,11 @@ import {
   type GameOver,
   type JoinOptions,
   type Phase,
+  type SlotResult,
   type VoteResult,
 } from "../../shared/net/protocol.ts";
 import { defaultSpawn, accessPoint, traceToWorld, validateMove, validateMoveWithin, type Vec2 } from "../../shared/map/townMap.ts";
-import { RULES, SKIP_VOTE, assignRoles, checkWinner, tallyVotes, teamOf, type Role } from "../../shared/game/rules.ts";
+import { RULES, SABOTAGES, SKIP_VOTE, assignRoles, checkWinner, isSabotageKind, tallyVotes, teamOf, type Role, type Team } from "../../shared/game/rules.ts";
 import { pointsOfInterest } from "../../shared/data/pointsOfInterest.ts";
 import { MISSION_RANGE, missionById, pickTasks } from "../../shared/game/missions.ts";
 
@@ -55,6 +56,15 @@ export type RoomOptions = {
   killCooldownMs?: number;
   tasksPerPlayer?: number;
   missionPool?: string[];
+  /** Roles fijos por nombre de jugador (pruebas). */
+  forceRoles?: Record<string, Role>;
+  slotChance?: number;
+  fireFirstMs?: number;
+  fireFixRange?: number;
+  sabotageFirstMs?: number;
+  criticalMs?: number;
+  fixMinMs?: number;
+  fixRange?: number;
 };
 
 /**
@@ -89,7 +99,25 @@ export class GameRoom extends Room<{ state: GameState }> {
   private firstKillMs = RULES.firstKillCooldownMs;
   private killCooldownMs = RULES.killCooldownMs;
   private tasksPerPlayer: number | undefined;
+  /** Último saludo de cada jugador (para limitar la frecuencia). */
+  private lastGreet = new Map<string, number>();
+  /** Puntos de apagado sujetos: punto → quién y hasta cuándo vale. */
+  private fireHolds = new Map<number, { id: string; until: number }>();
+  private fireTimer: Delayed | null = null;
+  /** Sabotaje crítico: quién lo ha arreglado y cuándo empezó cada uno su minijuego. */
+  private fixers = new Set<string>();
+  private fixStarts = new Map<string, number>();
+  /** Ludópata: jugadores buenos que ya le han revelado (para no repetir). */
+  private revealed = new Map<string, Set<string>>();
   private missionPool: string[] | undefined;
+  private forceRoles: Record<string, Role> | undefined;
+  private slotChance = RULES.slotChance;
+  private fireFirstMs = RULES.fireFirstMs;
+  private fireFixRange = RULES.fireFixRange;
+  private sabotageFirstMs = RULES.sabotageFirstMs;
+  private criticalMs = RULES.criticalMs;
+  private fixMinMs = RULES.fixMinMs;
+  private fixRange = MISSION_RANGE;
 
   onCreate(options: JoinOptions & RoomOptions = {}) {
     // Opciones de prueba (azar con semilla, tiempos cortos). Solo se aceptan en pruebas.
@@ -100,6 +128,14 @@ export class GameRoom extends Room<{ state: GameState }> {
       if (typeof options.killCooldownMs === "number") this.killCooldownMs = options.killCooldownMs;
       if (typeof options.tasksPerPlayer === "number") this.tasksPerPlayer = options.tasksPerPlayer;
       if (Array.isArray(options.missionPool)) this.missionPool = options.missionPool;
+      if (options.forceRoles && typeof options.forceRoles === "object") this.forceRoles = options.forceRoles;
+      if (typeof options.slotChance === "number") this.slotChance = options.slotChance;
+      if (typeof options.fireFirstMs === "number") this.fireFirstMs = options.fireFirstMs;
+      if (typeof options.fireFixRange === "number") this.fireFixRange = options.fireFixRange;
+      if (typeof options.sabotageFirstMs === "number") this.sabotageFirstMs = options.sabotageFirstMs;
+      if (typeof options.criticalMs === "number") this.criticalMs = options.criticalMs;
+      if (typeof options.fixMinMs === "number") this.fixMinMs = options.fixMinMs;
+      if (typeof options.fixRange === "number") this.fixRange = options.fixRange;
     }
     const code = generateCode();
     activeCodes.add(code);
@@ -130,6 +166,13 @@ export class GameRoom extends Room<{ state: GameState }> {
     this.onMessage("volver", (client) => this.backToLobby(client));
     this.onMessage("tarea-inicio", (client, msg: { mission: string }) => this.taskStart(client, msg?.mission));
     this.onMessage("tarea-fin", (client, msg: { mission: string }) => this.taskFinish(client, msg?.mission));
+    this.onMessage("saludar", (client, msg: { target: string }) => this.greet(client, msg?.target));
+    this.onMessage("incendio", (client) => this.startFire(client));
+    this.onMessage("apagar", (client, msg: { punto: number }) => this.holdFirePoint(client, Number(msg?.punto)));
+    this.onMessage("tragaperras", (client) => this.playSlot(client));
+    this.onMessage("sabotear", (client, msg: { kind: string }) => this.sabotage(client, String(msg?.kind ?? "")));
+    this.onMessage("arreglar-inicio", (client, msg: { kind: string }) => this.fixStart(client, String(msg?.kind ?? "")));
+    this.onMessage("arreglar", (client, msg: { kind: string }) => this.fix(client, String(msg?.kind ?? "")));
   }
 
   onJoin(client: Client, options: JoinOptions = {}) {
@@ -206,6 +249,10 @@ export class GameRoom extends Room<{ state: GameState }> {
     if (ids.length < RULES.minPlayers) return this.deny(client, "empezar", `Hacen falta al menos ${RULES.minPlayers} jugadores.`);
 
     this.roles = assignRoles(ids, this.random);
+    if (this.forceRoles) for (const id of ids) {
+      const forced = this.forceRoles[this.state.players.get(id)!.name];
+      if (forced) this.roles.set(id, forced);
+    }
     const now = this.now();
     let i = 0;
     let total = 0;
@@ -218,7 +265,11 @@ export class GameRoom extends Room<{ state: GameState }> {
       p.hasVoted = false;
       p.tasksDone = 0;
       p.emergenciesLeft = RULES.emergenciesPerPlayer;
-      p.specialLeft = role === "vilchez";
+      p.specialLeft = false;
+      p.trackedId = "";
+      p.slotUsed = false;
+      p.fireReadyAt = role === "piromano" ? now + this.fireFirstMs : 0;
+      p.sabotageReadyAt = teamOf(role) === "impostores" ? now + this.sabotageFirstMs : 0;
       p.killReadyAt = teamOf(role) === "impostores" ? now + this.firstKillMs : 0;
       const pos = this.ringPoint(defaultSpawn(), i++);
       p.x = pos.x;
@@ -240,6 +291,9 @@ export class GameRoom extends Room<{ state: GameState }> {
     this.state.tasksDone = 0;
     this.state.bodies.clear();
     this.killers.clear();
+    this.revealed.clear();
+    this.lastGreet.clear();
+    this.extinguish();
     this.state.winner = "";
     this.state.endReason = "";
     for (const c of this.clients) this.refreshView(c);
@@ -297,17 +351,162 @@ export class GameRoom extends Room<{ state: GameState }> {
   private emergency(client: Client) {
     const p = this.state.players.get(client.sessionId);
     if (this.state.phase !== "partida" || !p?.alive) return this.deny(client, "emergencia", "No puedes convocar ahora.");
+    if (this.state.sabotage) return this.deny(client, "emergencia", "Hay un incendio: apágalo antes de convocar.");
     const hall = townHallAccess();
     const nearHall = Math.hypot(p.x - hall.x, p.y - hall.y) <= RULES.emergencyRange;
     if (nearHall && p.emergenciesLeft > 0) {
       p.emergenciesLeft--;
       return this.startMeeting(p.name, "emergencia", "");
     }
-    if (this.roles.get(client.sessionId) === "vilchez" && p.specialLeft) {
-      p.specialLeft = false;
-      return this.startMeeting(p.name, "vilchez", "");
-    }
     this.deny(client, "emergencia", nearHall ? "Ya has usado tu reunión de emergencia." : "Ve al Ayuntamiento para convocar una reunión.");
+  }
+
+  // ------------------------------------------------------ roles especiales
+
+  /** Saludar a un jugador cercano (todos). Vilchez además lo deja rastreado para siempre. */
+  private greet(client: Client, targetId: string) {
+    const p = this.state.players.get(client.sessionId);
+    const target = this.state.players.get(targetId);
+    if (this.state.phase !== "partida" || !p?.alive || !target?.alive || targetId === client.sessionId)
+      return this.deny(client, "saludar", "No puedes saludar ahora.");
+    if (Math.hypot(p.x - target.x, p.y - target.y) > RULES.greetRange) return this.deny(client, "saludar", "Está demasiado lejos.");
+    const now = this.now();
+    if (now - (this.lastGreet.get(client.sessionId) ?? -Infinity) < RULES.greetCooldownMs) return;
+    this.lastGreet.set(client.sessionId, now);
+    this.broadcast("saludo", { from: client.sessionId, to: targetId });
+    if (this.roles.get(client.sessionId) === "vilchez" && !p.trackedId) p.trackedId = targetId;
+  }
+
+  /** Pirómano: prende fuego al pueblo. */
+  private startFire(client: Client) {
+    const p = this.state.players.get(client.sessionId);
+    if (this.state.phase !== "partida" || !p?.alive || this.roles.get(client.sessionId) !== "piromano")
+      return this.deny(client, "incendio", "Solo el Pirómano puede prender fuego.");
+    if (this.state.sabotage) return this.deny(client, "incendio", "Ya hay un sabotaje en marcha.");
+    const now = this.now();
+    if (now < p.fireReadyAt) return this.deny(client, "incendio", "Todavía no puedes prender otro fuego.");
+    this.state.sabotage = "incendio";
+    this.state.sabotageEndsAt = now + RULES.fireMs;
+    this.fireHolds.clear();
+    this.state.fireHeld = "";
+    p.fireReadyAt = now + RULES.fireMs + RULES.fireCooldownMs;
+    for (const [id, pl] of this.state.players) {
+      const role = this.roles.get(id);
+      if (role && teamOf(role) === "impostores") pl.killReadyAt = Math.max(now, pl.killReadyAt - RULES.fireKillBonusMs);
+    }
+    this.fireTimer?.clear();
+    this.fireTimer = this.clock.setTimeout(() => this.extinguish(), RULES.fireMs);
+  }
+
+  /**
+   * Apagar: hay que sujetar a la vez los dos puntos (Ayuntamiento y Sagrado Corazón) entre
+   * dos jugadores. El Conserje lo apaga él solo desde cualquiera de los dos.
+   */
+  private holdFirePoint(client: Client, punto: number) {
+    const p = this.state.players.get(client.sessionId);
+    if (this.state.sabotage !== "incendio" || this.state.phase !== "partida" || !p?.alive) return;
+    if (!RULES.firePoints.includes(punto)) return this.deny(client, "apagar", "Ahí no se puede apagar el fuego.");
+    const at = poiAccess(punto);
+    if (!at || Math.hypot(p.x - at.x, p.y - at.y) > this.fireFixRange) return this.deny(client, "apagar", "Acércate más al punto de agua.");
+    if (this.roles.get(client.sessionId) === "conserje") return this.extinguish();
+    const now = this.now();
+    this.fireHolds.set(punto, { id: client.sessionId, until: now + RULES.fireHoldMs });
+    const active = [...this.fireHolds.entries()].filter(([, h]) => h.until > now);
+    this.state.fireHeld = active.map(([n]) => n).join(",");
+    const holders = new Set(active.map(([, h]) => h.id));
+    if (active.length >= RULES.firePoints.length && holders.size >= 2) this.extinguish();
+  }
+
+  private extinguish() {
+    this.fireTimer?.clear();
+    this.fireTimer = null;
+    this.fireHolds.clear();
+    this.fixers.clear();
+    this.fixStarts.clear();
+    this.state.sabotageFixes = 0;
+    this.state.sabotage = "";
+    this.state.sabotageEndsAt = 0;
+    this.state.fireHeld = "";
+  }
+
+  /** Cualquier impostor: sabotaje crítico. Si no se arregla a tiempo, ganan los impostores. */
+  private sabotage(client: Client, kind: string) {
+    const p = this.state.players.get(client.sessionId);
+    const role = this.roles.get(client.sessionId);
+    if (this.state.phase !== "partida" || !p?.alive || !role || teamOf(role) !== "impostores")
+      return this.deny(client, "sabotear", "Solo los impostores pueden sabotear.");
+    if (!isSabotageKind(kind)) return this.deny(client, "sabotear", "Sabotaje desconocido.");
+    if (this.state.sabotage) return this.deny(client, "sabotear", "Ya hay un sabotaje en marcha.");
+    const now = this.now();
+    if (now < p.sabotageReadyAt) return this.deny(client, "sabotear", "Todavía no puedes sabotear.");
+    this.extinguish();
+    this.state.sabotage = kind;
+    this.state.sabotageEndsAt = now + this.criticalMs;
+    for (const [id, pl] of this.state.players) {
+      const r = this.roles.get(id);
+      if (r && teamOf(r) === "impostores") pl.sabotageReadyAt = now + this.criticalMs + RULES.sabotageCooldownMs;
+    }
+    this.fireTimer?.clear();
+    this.fireTimer = this.clock.setTimeout(() => {
+      if (this.state.sabotage !== kind || this.state.phase !== "partida") return;
+      this.endGame("impostores", `${SABOTAGES[kind].nombre} y nadie lo arregló a tiempo.`);
+    }, this.criticalMs);
+  }
+
+  private nearSabotage(p: PlayerState, kind: keyof typeof SABOTAGES) {
+    const at = poiAccess(SABOTAGES[kind].lugar);
+    return !!at && Math.hypot(p.x - at.x, p.y - at.y) <= this.fixRange;
+  }
+
+  private fixStart(client: Client, kind: string) {
+    const p = this.state.players.get(client.sessionId);
+    if (this.state.phase !== "partida" || !p?.alive || this.state.sabotage !== kind || !isSabotageKind(kind)) return;
+    if (!this.nearSabotage(p, kind)) return this.deny(client, "arreglar", "Tienes que estar en el sitio del sabotaje.");
+    this.fixStarts.set(client.sessionId, this.now());
+  }
+
+  private fix(client: Client, kind: string) {
+    const p = this.state.players.get(client.sessionId);
+    const started = this.fixStarts.get(client.sessionId);
+    if (this.state.phase !== "partida" || !p?.alive || this.state.sabotage !== kind || !isSabotageKind(kind) || started === undefined)
+      return this.deny(client, "arreglar", "No hay nada que arreglar.");
+    if (this.now() - started < this.fixMinMs * 0.9) return this.deny(client, "arreglar", "Demasiado rápido.");
+    if (!this.nearSabotage(p, kind)) return this.deny(client, "arreglar", "Te has alejado del sitio.");
+    this.fixStarts.delete(client.sessionId);
+    this.fixers.add(client.sessionId);
+    this.state.sabotageFixes = this.fixers.size;
+    if (this.roles.get(client.sessionId) === "conserje" || this.fixers.size >= RULES.fixesNeeded) {
+      this.broadcast("arreglado", { kind, by: p.name });
+      this.extinguish();
+    }
+  }
+
+  /** Ludópata: una tirada por ronda en un bar; con premio se le revela un jugador bueno. */
+  private playSlot(client: Client) {
+    const p = this.state.players.get(client.sessionId);
+    if (this.state.phase !== "partida" || !p?.alive || this.roles.get(client.sessionId) !== "ludopata")
+      return this.deny(client, "tragaperras", "Solo el Ludópata juega a la tragaperras.");
+    if (p.slotUsed) return this.deny(client, "tragaperras", "Ya has jugado esta ronda.");
+    const nearBar = RULES.slotBars.some((n) => {
+      const at = poiAccess(n);
+      return !!at && Math.hypot(p.x - at.x, p.y - at.y) <= MISSION_RANGE;
+    });
+    if (!nearBar) return this.deny(client, "tragaperras", "La tragaperras está en los bares.");
+    p.slotUsed = true;
+    const result: SlotResult = { won: false, id: null, name: null };
+    if (this.random() < this.slotChance) {
+      const seen = this.revealed.get(client.sessionId) ?? new Set<string>();
+      const good = [...this.roles.entries()].filter(
+        ([id, role]) => id !== client.sessionId && teamOf(role) === "tripulacion" && !seen.has(id) && this.state.players.has(id),
+      );
+      if (good.length) {
+        const [id] = good[Math.floor(this.random() * good.length)];
+        seen.add(id);
+        this.revealed.set(client.sessionId, seen);
+        Object.assign(result, { won: true, id, name: this.state.players.get(id)!.name });
+      }
+    }
+    client.send("premio", result);
   }
 
   // ----------------------------------------------------------------- misiones
@@ -354,6 +553,7 @@ export class GameRoom extends Room<{ state: GameState }> {
 
   private startMeeting(caller: string, reason: string, victim: string) {
     this.taskStarts.clear();
+    this.extinguish();
     this.state.meetingCaller = caller;
     this.state.meetingReason = reason;
     this.state.meetingVictim = victim;
@@ -403,6 +603,7 @@ export class GameRoom extends Room<{ state: GameState }> {
       for (const [id, p] of this.state.players) {
         const role = this.roles.get(id);
         if (role && teamOf(role) === "impostores") p.killReadyAt = now + this.killCooldownMs;
+        p.slotUsed = false; // nueva ronda: el Ludópata puede volver a jugar
       }
       this.setPhase("partida");
     });
@@ -416,16 +617,21 @@ export class GameRoom extends Room<{ state: GameState }> {
       .map(([id, p]) => ({ id, role: this.roles.get(id)!, alive: p.alive }));
     const res = checkWinner(players, this.state.tasksDone, this.state.tasksTotal || Infinity);
     if (!res) return false;
-    this.state.winner = res.winner;
-    this.state.endReason = res.reason;
+    this.endGame(res.winner, res.reason);
+    return true;
+  }
+
+  private endGame(winner: Team, reason: string) {
+    this.state.winner = winner;
+    this.state.endReason = reason;
     const over: GameOver = {
-      winner: res.winner,
-      reason: res.reason,
+      winner,
+      reason,
       roles: [...this.roles.entries()].map(([id, role]) => ({ id, name: this.state.players.get(id)?.name ?? "?", role })),
     };
+    this.extinguish();
     this.broadcast("fin", over);
     this.setPhase("fin");
-    return true;
   }
 
   private backToLobby(client: Client) {
@@ -435,6 +641,7 @@ export class GameRoom extends Room<{ state: GameState }> {
     this.votes.clear();
     this.killers.clear();
     this.state.bodies.clear();
+    this.extinguish();
     let i = 0;
     this.state.tasksDone = 0;
     this.state.tasksTotal = 0;
@@ -445,6 +652,10 @@ export class GameRoom extends Room<{ state: GameState }> {
       p.hasVoted = false;
       p.killReadyAt = 0;
       p.specialLeft = false;
+      p.trackedId = "";
+      p.slotUsed = false;
+      p.fireReadyAt = 0;
+      p.sabotageReadyAt = 0;
       const pos = this.ringPoint(defaultSpawn(), i++);
       p.x = pos.x;
       p.y = pos.y;

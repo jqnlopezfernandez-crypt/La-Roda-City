@@ -36,7 +36,14 @@ Página jugable (sin servidor, modo en solitario): artifact "La Roda City" — s
 - Comprobado en el PC de Windows: pruebas, compilación y creación de sala por el proxy.
 
 ## Fase 4 — Roles y mecánicas ✅
-- Sapo, Gitano (se lleva el cuerpo de su víctima), Roeño, Vilchez (reunión desde cualquier sitio, 1 vez).
+- Impostores: Sapo, Gitano (se lleva el cuerpo), Pirómano (incendio con humo). Vecinos: Roeño, Vilchez
+  (saluda y rastrea en el minimapa), Conserje (arregla solo), Ludópata (tragaperras, 15 %).
+- Sabotajes críticos de cualquier impostor (cabeza del Sagrado, cacas en la piscina, riada en el Erillas):
+  40 s, dos arreglos o el Conserje; si no, ganan los impostores. Menú ilustrado, cuenta atrás, música de
+  tensión, decorado en el mapa y minijuegos de arrastrar. Probado: pruebas de servidor en `partida.test.ts`
+  y `tests/e2e/sabotaje.mjs` (4 navegadores: menú, cuenta atrás en todos, arreglo con el minijuego, la
+  partida sigue). En el entorno de pruebas los navegadores van a pocos fotogramas, por eso los vecinos
+  llegan al sitio antes de sabotear.
 - Roles secretos con StateView (comprobado que un vecino no recibe roles ajenos; prueba de mutación).
 - Eliminación con alcance y espera, cuerpos, reportar, reunión de emergencia en el Ayuntamiento,
   votación (empate o "saltar" = nadie), revelación de si era impostor, victoria y vuelta a la sala.
@@ -75,6 +82,7 @@ npm run dev & npm run server:dev   # y después:
 node tests/e2e/play.mjs http://localhost:5173 /tmp
 node tests/e2e/multijugador.mjs http://localhost:5173 /tmp
 node tests/e2e/partida.mjs http://localhost:5173 /tmp
+node tests/e2e/sabotaje.mjs http://localhost:5173 /tmp cabeza   # o piscina / riada
 node tests/e2e/minijuegos.mjs http://localhost:5173 /tmp
 node tests/e2e/mision-en-partida.mjs http://localhost:5173
 ```

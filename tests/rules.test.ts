@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RULES, SKIP_VOTE, assignRoles, checkWinner, seededRandom, tallyVotes, teamOf, type Role } from "../shared/game/rules";
+import { IMPOSTOR_ROLES, RULES, SKIP_VOTE, assignRoles, checkWinner, seededRandom, tallyVotes, teamOf, type Role } from "../shared/game/rules";
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`);
 
@@ -13,9 +13,20 @@ describe("reparto de roles", () => {
       const roles = [...assignRoles(ids(n), seededRandom(seed)).values()];
       const imp = roles.filter((r) => teamOf(r) === "impostores");
       expect(imp.length).toBe(n >= 7 ? 2 : 1);
-      expect(roles.filter((r) => r === "vilchez").length).toBe(1);
-      if (n >= 7) expect(new Set(imp)).toEqual(new Set<Role>(["sapo", "gitano"]));
+      expect(new Set(imp).size).toBe(imp.length); // impostores con roles distintos
+      for (const r of imp) expect(IMPOSTOR_ROLES).toContain(r);
+      const crew = roles.filter((r) => teamOf(r) === "tripulacion");
+      const specials = crew.filter((r) => r !== "roeno");
+      expect(specials.length).toBe(Math.min(3, crew.length - 1));
+      expect(new Set(specials).size).toBe(specials.length);
+      expect(crew).toContain("roeno");
     }
+  });
+
+  it("salen todos los roles con el tiempo", () => {
+    const seen = new Set<Role>();
+    for (let seed = 1; seed <= 200; seed++) for (const r of assignRoles(ids(8), seededRandom(seed)).values()) seen.add(r);
+    expect([...seen].sort()).toEqual(["conserje", "gitano", "ludopata", "piromano", "roeno", "sapo", "vilchez"]);
   });
 
   it("los roles se reparten al azar (todos pueden ser impostor)", () => {

@@ -55,8 +55,16 @@ export const PlayerState = schema(
     role: t.string().view(),
     /** SECRETO: momento (ms del servidor) en que el impostor puede volver a eliminar. */
     killReadyAt: t.number().view(),
-    /** SECRETO: le queda la reunión especial de Vilchez. */
+    /** SECRETO: le queda la reunión especial (ya no se usa; se mantiene por compatibilidad). */
     specialLeft: t.boolean().view(),
+    /** SECRETO (Vilchez): jugador saludado que sigue localizado en el minimapa. */
+    trackedId: t.string().view(),
+    /** SECRETO (Pirómano): cuándo puede volver a prender fuego. */
+    fireReadyAt: t.number().view(),
+    /** SECRETO (impostores): cuándo pueden volver a sabotear. */
+    sabotageReadyAt: t.number().view(),
+    /** SECRETO (Ludópata): ya ha jugado a la tragaperras esta ronda. */
+    slotUsed: t.boolean().view(),
     emergenciesLeft: t.uint8(),
     tasksDone: t.uint8(),
     /** SECRETO: misiones del jugador. Los impostores reciben misiones falsas de tapadera. */
@@ -95,6 +103,13 @@ export const GameState = schema(
     /** Fin de partida */
     winner: t.string(),
     endReason: t.string(),
+    /** Sabotaje en curso ("" o "incendio") y cuándo se apaga solo. */
+    sabotage: t.string(),
+    sabotageEndsAt: t.number(),
+    /** Arreglos hechos del sabotaje crítico en curso (hacen falta 2, o 1 del Conserje). */
+    sabotageFixes: t.uint8(),
+    /** Puntos de apagado que alguien está sujetando ahora (n.º del dibujo, separados por comas). */
+    fireHeld: t.string(),
     /** Misiones (fase 5) */
     tasksDone: t.uint16(),
     tasksTotal: t.uint16(),
@@ -117,7 +132,19 @@ export type ClientMessages = {
   volver: void;
   "tarea-inicio": { mission: string };
   "tarea-fin": { mission: string };
+  saludar: { target: string };
+  incendio: void;
+  apagar: { punto: number };
+  tragaperras: void;
+  sabotear: { kind: string };
+  "arreglar-inicio": { kind: string };
+  arreglar: { kind: string };
 };
+
+/** Saludo entre dos jugadores (lo ven todos). */
+export type Greeting = { from: string; to: string };
+/** Resultado de la tragaperras (solo al Ludópata). */
+export type SlotResult = { won: boolean; id: string | null; name: string | null };
 
 /** Mensajes servidor → cliente. */
 export type VoteResult = {

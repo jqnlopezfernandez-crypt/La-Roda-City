@@ -28,6 +28,7 @@ import {
   slabTexture,
 } from "./ground";
 import { LANDMARK_ART, barracksLong, barracksShort, churchLong, churchShort, churchTowerWall, shopSign, stationLong, stationShort, townHallLong, townHallShort, townHallTowerWall } from "./landmarks";
+import { floodPuddleArt, poopArt, statueHeadArt } from "./sabotages";
 import { CORNER_H, CORNER_ROOFS, CORNER_VARIANTS, CORNER_W, cornerFacade } from "./corners";
 import { FACADE_MODELS, FACADE_VARIANTS, HOUSE_H, HOUSE_W, houseFacade } from "./houses";
 import { PALETTE } from "../game/characters";
@@ -127,6 +128,9 @@ export const ART: ArtEntry[] = [
     (kind): ArtEntry => ({ key: `letrero-${kind}`, w: 44, h: 70, scale: 2, ox: 10 / 44, oy: 0.96, svg: () => svgDoc(44, 70, shopSign(kind)), grupo: "mobiliario" }),
   ),
   { key: "estatua", w: 68, h: 128, scale: 2, ox: 0.5, oy: 0.95, svg: statue, grupo: "mobiliario" },
+  { key: "sab-cabeza", w: 64, h: 64, scale: 2, ox: 0.5, oy: 0.85, svg: () => svgDoc(64, 64, statueHeadArt()), grupo: "mobiliario" },
+  { key: "sab-caca", w: 48, h: 44, scale: 2, ox: 0.5, oy: 0.8, svg: () => svgDoc(48, 44, poopArt(7)), grupo: "mobiliario" },
+  { key: "sab-riada", w: 200, h: 110, scale: 1.5, ox: 0.5, oy: 0.5, svg: () => svgDoc(200, 110, floodPuddleArt()), grupo: "mobiliario" },
   { key: "marcador", w: 28, h: 38, scale: 2, ox: 0.5, oy: 0.92, svg: () => mapMarker(), grupo: "interfaz" },
   { key: "aviso", w: 30, h: 34, scale: 2, ox: 0.5, oy: 0.95, svg: alertSign, grupo: "interfaz" },
   { key: "punto", w: 14, h: 14, scale: 2, ox: 0.5, oy: 0.5, svg: dot, grupo: "interfaz" },

@@ -28,6 +28,7 @@ import {
   tobaccoPackSvg,
   trainCardSvg,
 } from "../art/minigames";
+import { floodScene, headlessStatueScene, netSvg, poolScene, poopSvg, sandbagSvg, statueHeadSvg } from "../art/sabotages";
 
 interface MiniGameContext {
   body: HTMLElement;
@@ -587,6 +588,152 @@ function cubataGame({ body, done, say }: MiniGameContext) {
   render();
 }
 
+
+// ------------------------------------------------------------ sabotajes (arrastrar)
+
+/** Escenario con la ilustración y piezas que se arrastran en coordenadas de la escena. */
+function dragStage(body: HTMLElement, scene: string, W: number, H: number) {
+  body.innerHTML = `<div class="mg-stage">${scene}</div>`;
+  const stage = body.querySelector<HTMLElement>(".mg-stage")!;
+  const toScene = (e: PointerEvent) => {
+    const r = stage.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
+  };
+  /** Pieza: imagen centrada en (x, y) con ancho w (todo en unidades de la escena). */
+  const piece = (svg: string, x: number, y: number, w: number, className = "") => {
+    const el = document.createElement("div");
+    el.className = `mg-piece ${className}`;
+    el.innerHTML = svgImg(svg);
+    el.style.width = `${(w / W) * 100}%`;
+    const place = (px: number, py: number) => {
+      el.style.left = `${(px / W) * 100}%`;
+      el.style.top = `${(py / H) * 100}%`;
+    };
+    place(x, y);
+    stage.appendChild(el);
+    return { el, place };
+  };
+  /** Hace arrastrable una pieza; onMove recibe la posición y onDrop decide si se queda. */
+  const draggable = (
+    p: { el: HTMLElement; place: (x: number, y: number) => void },
+    home: { x: number; y: number },
+    onDrop: (x: number, y: number) => boolean,
+    onMove?: (x: number, y: number) => void,
+  ) => {
+    let dragging = false;
+    p.el.addEventListener("pointerdown", (e) => {
+      if (p.el.classList.contains("fijo")) return;
+      dragging = true;
+      p.el.classList.add("cogido");
+      p.el.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    p.el.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const q = toScene(e);
+      p.place(q.x, q.y);
+      onMove?.(q.x, q.y);
+    });
+    const end = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      p.el.classList.remove("cogido");
+      const q = toScene(e);
+      if (!onDrop(q.x, q.y)) p.place(home.x, home.y);
+    };
+    p.el.addEventListener("pointerup", end);
+    p.el.addEventListener("pointercancel", end);
+  };
+  return { stage, piece, draggable };
+}
+
+/** Sagrado Corazón: arrastra la cabeza del suelo hasta el cuello de la estatua. */
+function statueHeadGame({ body, done, say }: MiniGameContext) {
+  const { stage, piece, draggable } = dragStage(body, headlessStatueScene(), 360, 260);
+  const home = { x: 64, y: 222 };
+  const head = piece(statueHeadSvg(), home.x, home.y, 62, "mg-head");
+  const neck = { x: 180, y: 78 };
+  say("Arrastra la cabeza hasta la estatua");
+  draggable(head, home, (x, y) => {
+    if (Math.hypot(x - neck.x, y - neck.y) > 34) {
+      say("Más arriba, sobre el cuello");
+      return false;
+    }
+    head.place(neck.x, neck.y);
+    head.el.classList.add("fijo");
+    stage.classList.add("arreglado");
+    done();
+    return true;
+  });
+}
+
+/** Piscina: pasa el salabre por encima de las cacas hasta sacarlas todas. */
+function poolPoopGame({ body, done, say }: MiniGameContext) {
+  const { stage, piece, draggable } = dragStage(body, poolScene(), 360, 250);
+  const poops = Array.from({ length: 5 }, (_, i) => {
+    const x = randRange(70, 290);
+    const y = randRange(55, 195);
+    const p = piece(poopSvg(i * 7 + 3), x, y, 40, "mg-poop");
+    p.el.style.animationDelay = `${-Math.random() * 3}s`;
+    return { ...p, x, y, out: false };
+  });
+  const home = { x: 318, y: 214 };
+  const net = piece(netSvg(), home.x, home.y, 92, "mg-net");
+  let left = poops.length;
+  say(`Pesca las ${left} cacas con el salabre`);
+  // El puntero lleva el aro (no el centro del dibujo): el aro está arriba a la izquierda
+  const ring = (x: number, y: number) => ({ x: x - 12, y: y - 12 });
+  draggable(
+    net,
+    home,
+    () => left === 0,
+    (x, y) => {
+      const r = ring(x, y);
+      for (const p of poops) {
+        if (p.out || Math.hypot(p.x - r.x, p.y - r.y) > 24) continue;
+        p.out = true;
+        p.el.classList.add("fuera");
+        left--;
+        say(left ? `¡Una menos! Quedan ${left}` : "¡Piscina limpia!");
+        if (!left) {
+          stage.classList.add("arreglado");
+          done();
+        }
+      }
+    },
+  );
+}
+
+/** Riada: arrastra un saco a cada brecha del pretil del Puente Erillas. */
+function sandbagGame({ body, done, say }: MiniGameContext) {
+  const { stage, piece, draggable } = dragStage(body, floodScene(), 360, 260);
+  const gaps = [96, 180, 264].map((x) => ({ x, y: 110, full: false }));
+  const gapEls = Array.from(stage.querySelectorAll<SVGElement>(".mg-gap"));
+  const gushEls = Array.from(stage.querySelectorAll<SVGElement>(".mg-gush"));
+  let left = gaps.length;
+  say("Tapona las brechas del puente con los sacos");
+  [0, 1, 2].forEach((i) => {
+    const home = { x: 30 + i * 6, y: 176 + i * 22 };
+    const bag = piece(sandbagSvg(i * 11 + 5), home.x, home.y, 50, "mg-bag");
+    draggable(bag, home, (x, y) => {
+      const k = gaps.findIndex((g) => !g.full && Math.hypot(g.x - x, g.y - y) < 34);
+      if (k < 0) return false;
+      gaps[k].full = true;
+      bag.place(gaps[k].x, gaps[k].y);
+      bag.el.classList.add("fijo");
+      gapEls[k]?.classList.add("tapada");
+      gushEls[k]?.classList.add("tapada");
+      left--;
+      say(left ? `¡Bien! Faltan ${left}` : "¡El agua ya no pasa!");
+      if (!left) {
+        stage.classList.add("arreglado");
+        done();
+      }
+      return true;
+    });
+  });
+}
+
 /** Abre el minijuego de un paso de misión. Devuelve la función que lo cierra. */
 export function openMiniGame(options: MiniGameOptions): () => void {
   const overlay = document.createElement("div");
@@ -643,6 +790,15 @@ export function openMiniGame(options: MiniGameOptions): () => void {
       break;
     case "cubata":
       cubataGame(ctx);
+      break;
+    case "cabeza":
+      statueHeadGame(ctx);
+      break;
+    case "piscina":
+      poolPoopGame(ctx);
+      break;
+    case "riada":
+      sandbagGame(ctx);
       break;
   }
   return close;

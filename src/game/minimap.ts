@@ -14,6 +14,8 @@ export class Minimap {
   private big = false;
   private me: Vec2 | null = null;
   private targets: Vec2[] = [];
+  /** Marcas extra: jugador rastreado (Vilchez), puntos de agua del incendio… */
+  private extras: { pos: Vec2; color: number }[] = [];
   private scene: Phaser.Scene;
 
   constructor(scene: Phaser.Scene) {
@@ -59,9 +61,10 @@ export class Minimap {
     this.drawMarks();
   }
 
-  update(me: Vec2, targets: Vec2[]) {
+  update(me: Vec2, targets: Vec2[], extras: { pos: Vec2; color: number }[] = []) {
     this.me = me;
     this.targets = targets;
+    this.extras = extras;
     this.drawMarks();
   }
 
@@ -71,6 +74,11 @@ export class Minimap {
     for (const t of this.targets) {
       const p = worldToTrace(t);
       m.fillStyle(0xf2b705, 1).fillCircle(6 + p.x * k, 6 + p.y * k, this.big ? 7 : 4);
+    }
+    for (const e of this.extras) {
+      const p = worldToTrace(e.pos);
+      m.fillStyle(e.color, 1).fillCircle(6 + p.x * k, 6 + p.y * k, this.big ? 8 : 5);
+      m.lineStyle(2, 0xffffff, 0.9).strokeCircle(6 + p.x * k, 6 + p.y * k, this.big ? 8 : 5);
     }
     if (this.me) {
       const p = worldToTrace(this.me);

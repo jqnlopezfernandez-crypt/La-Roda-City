@@ -67,6 +67,8 @@ const STYLES = {
   sala: { bpm: 76, progs: [["Am", "G", "F", "E"], ["Am", "Am", "G", "F"], ["Dm", "Am", "F", "E"]], patterns: [2, 4], melody: 0.25, perc: 0, pulse: false, strumEvery: 0, level: 0.85, drone: 0 },
   partida: { bpm: 84, progs: [["Am", "G", "F", "E"], ["Am", "G", "F", "E"], ["Dm", "C", "Bb", "Am"], ["Am", "Dm", "F", "E"], ["F", "E", "F", "E"]], patterns: [0, 1, 2, 3, 4], melody: 0.4, perc: 0.5, pulse: false, strumEvery: 0, level: 1, drone: 0 },
   reunion: { bpm: 112, progs: [["E", "F", "E", "F"], ["Dm", "E", "F", "E"], ["E", "E7b9", "F", "E"], ["Am", "G", "F", "E7b9"]], patterns: [2, 4], melody: 0.15, perc: 1, pulse: true, strumEvery: 2, level: 0.6, drone: 1 },
+  /** Sabotaje crítico: pulso rápido, percusión constante y bordón fuerte: hay que correr. */
+  sabotaje: { bpm: 144, progs: [["E", "F", "E", "F"], ["E7b9", "F", "E7b9", "F"], ["Dm", "E", "Dm", "E7b9"]], patterns: [2], melody: 0, perc: 1, pulse: true, strumEvery: 1, level: 0.95, drone: 1.6 },
   resultado: { bpm: 66, progs: [["Am", "G", "F", "E"]], patterns: [2], melody: 0, perc: 0, pulse: false, strumEvery: 1, level: 0.75, drone: 0.4 },
   fin: { bpm: 70, progs: [["Am", "F", "E", "E"], ["Am", "G", "F", "E"], ["A", "Dm", "E", "A"]], patterns: [2, 4], melody: 0.5, perc: 0.25, pulse: false, strumEvery: 4, level: 0.85, drone: 0 },
   derrota: { bpm: 60, progs: [["Am", "Dm", "Am", "E"], ["Dm", "Am", "Bb", "E"]], patterns: [2], melody: 0.2, perc: 0, pulse: false, strumEvery: 4, level: 0.75, drone: 0.3 },
@@ -162,7 +164,7 @@ export class GuitarMusic {
     this.droneGain.gain.setTargetAtTime(STYLES[next].drone * 0.05, now, 1.2);
     this.out.gain.setTargetAtTime(STYLES[next].level * MUSIC_GAIN, now, 0.8);
     // La reunión entra con un rasgueo de aviso
-    if (next === "reunion") this.rasgueado(now + 0.05, CHORDS.E7b9, 0.5);
+    if (next === "reunion" || next === "sabotaje") this.rasgueado(now + 0.05, CHORDS.E7b9, 0.5);
   }
 
   start(when = this.ctx.currentTime): void {
@@ -236,7 +238,7 @@ export class GuitarMusic {
     this.phraseNo++;
     this.prog = pick(style.progs);
     this.pattern = ARPEGGIO_PATTERNS[pick(style.patterns)];
-    this.breath = this.phase !== "reunion" && this.phraseNo % 5 === 0;
+    this.breath = this.phase !== "reunion" && this.phase !== "sabotaje" && this.phraseNo % 5 === 0;
     this.percOn = style.perc > 0 && (style.perc >= 1 || this.phraseNo % 2 === 0);
     this.melody.clear();
     if (!this.breath && Math.random() < style.melody) this.makeMelody();

@@ -1,6 +1,19 @@
-import { ROLE_INFO, SKIP_VOTE } from "../../shared/game/rules";
+import { ROLE_INFO, SABOTAGES, SKIP_VOTE, type SabotageKind } from "../../shared/game/rules";
+import { floodScene, headlessStatueScene, poolScene } from "../art/sabotages";
 import { PALETTE } from "../game/characters";
 import type { GameOver, VoteResult } from "../net/session";
+import type { SlotResult } from "../../shared/net/protocol";
+
+/** Cómo se usa cada rol (botones), debajo de la descripción. */
+const ROLE_HINT: Record<string, string> = {
+  sapo: "Acércate a un vecino y pulsa el cuchillo (Q). Con las tijeras (Z) saboteas el pueblo.",
+  gitano: "Tras eliminar, pulsa la cesta (C) junto al cuerpo para llevártelo. Con las tijeras (Z) saboteas.",
+  piromano: "Pulsa el fuego (G) para prender el pueblo. Mientras arde, los vecinos casi no ven. Con las tijeras (Z) saboteas.",
+  roeno: "Sigue los puntos amarillos hasta tus misiones. Si ves un cuerpo, repórtalo (F).",
+  vilchez: "Acércate a alguien y pulsa la mano que saluda (V): quedará marcado en azul en tu minimapa.",
+  conserje: "Incendios (cubo, B) y sabotajes (llave, R): tú solo los arreglas, sin esperar a nadie.",
+  ludopata: "En cualquier bar pulsa la moneda (T), una vez por ronda. Con premio sabrás de alguien bueno (✔).",
+};
 
 /**
  * Pantallas superpuestas en HTML (más cómodas de leer y pulsar en el móvil que
@@ -60,6 +73,7 @@ export class Overlays {
        <h2>${info.nombre}</h2>
        <p class="ov-team">${imp ? "Impostor" : "Vecino"}</p>
        <p>${escapeHtml(info.descripcion)}</p>
+       ${ROLE_HINT[role] ? `<p class="ov-hint">${escapeHtml(ROLE_HINT[role])}</p>` : ""}
        ${partner ? `<p class="ov-partner">Tu compañero impostor: <b>${escapeHtml(partner)}</b></p>` : ""}
        <button class="btn btn-primary" data-close>¡Vamos!</button>`,
     );
@@ -155,6 +169,60 @@ export class Overlays {
     );
     el.querySelector("[data-back]")?.addEventListener("click", onBack);
     return el;
+  }
+
+  /** Tragaperras del Ludópata: rodillos girando y resultado. */
+  showSlot(r: SlotResult) {
+    const symbols = ["🍒", "🍋", "🔔", "⭐", "🍇", "7"];
+    const el = this.card(
+      "ov-slot",
+      `<p class="ov-kicker">Tragaperras del bar</p>
+       <div class="slot-reels">${[0, 1, 2].map(() => `<span class="slot-reel">🍒</span>`).join("")}</div>
+       <p class="slot-msg">Girando…</p>`,
+    );
+    const reels = [...el.querySelectorAll<HTMLSpanElement>(".slot-reel")];
+    const msg = el.querySelector<HTMLParagraphElement>(".slot-msg")!;
+    const final = r.won ? ["7", "7", "7"] : [0, 1, 2].map((i) => symbols[(Math.floor(Math.random() * 5) + i * 2) % 5]);
+    if (!r.won && final[0] === final[1] && final[1] === final[2]) final[2] = "🍋";
+    let ticks = 0;
+    const spin = window.setInterval(() => {
+      ticks++;
+      reels.forEach((reel, i) => {
+        if (ticks > 12 + i * 6) reel.textContent = final[i];
+        else reel.textContent = symbols[(ticks + i * 3) % symbols.length];
+      });
+      if (ticks > 26) {
+        window.clearInterval(spin);
+        msg.innerHTML = r.won
+          ? `¡Premio! <b>${escapeHtml(r.name ?? "")}</b> es de los buenos.`
+          : "Sin premio esta vez. Prueba en la siguiente ronda.";
+        el.classList.add(r.won ? "won" : "lost");
+        window.setTimeout(() => el.remove(), 3200);
+      }
+    }, 70);
+  }
+
+  /** Menú del impostor: elegir uno de los tres sabotajes críticos (con su ilustración). */
+  showSabotageMenu(onPick: (kind: SabotageKind) => void) {
+    this.root.querySelector(".ov-sabotaje")?.remove();
+    const scenes: Record<SabotageKind, () => string> = { cabeza: headlessStatueScene, piscina: () => poolScene(true), riada: floodScene };
+    const kinds = Object.keys(SABOTAGES) as SabotageKind[];
+    const el = this.card(
+      "ov-sabotaje",
+      `<button class="mg-x" aria-label="Cerrar">✕</button>
+       <p class="ov-kicker">Sabotaje</p><h2>¿Qué le hacemos al pueblo?</h2>
+       <p class="ov-sub">Tendrán 40 segundos para arreglarlo entre dos (o el Conserje). Si no llegan, ganáis.</p>
+       <div class="sab-grid">${kinds
+         .map((k) => `<button class="sab-opt" data-k="${k}">${scenes[k]()}<b>${SABOTAGES[k].nombre}</b></button>`)
+         .join("")}</div>`,
+    );
+    el.querySelector(".mg-x")!.addEventListener("click", () => el.remove());
+    el.querySelectorAll<HTMLButtonElement>(".sab-opt").forEach((b) =>
+      b.addEventListener("click", () => {
+        el.remove();
+        onPick(b.dataset.k as SabotageKind);
+      }),
+    );
   }
 
   clear() {

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { PLAYER_RADIUS, PLAYER_SPEED } from "../../shared/net/protocol";
-import { WORLD_SIZE, defaultSpawn, isWalkable, moveAlongStreets, nearestWalkable, traceToWorld, type Vec2 } from "../../shared/map/townMap";
+import { WORLD_SIZE, defaultSpawn, isWalkable, moveAlongStreets, nearestWalkable, traceToWorld, worldObstacles, type Vec2 } from "../../shared/map/townMap";
 import { addProp, registerArt } from "../art/runtime";
 import { TownRenderer, placeDecor, placeOccluders } from "./mapRenderer";
 import { createAmbience } from "./ambience";
@@ -9,14 +9,18 @@ import { ambient, music, sfx } from "./sounds";
 import { ACTIVE_MISSIONS, MISSION_RANGE, missionById, pickTasks, type AssignedTask } from "../../shared/game/missions";
 import { findPath, type Path } from "../../shared/map/pathfinding";
 import { input } from "./inputState";
+import { FONT } from "./theme";
 import { RIVER_WIDTH, riverLines } from "../../shared/map/river";
 import { Overlays, type MeetingPlayer } from "../ui/overlays";
-import { RULES, teamOf, type Role } from "../../shared/game/rules";
+import { RULES, SABOTAGES, isSabotageKind, teamOf, type Role, type SabotageKind } from "../../shared/game/rules";
 import { openMiniGame } from "../ui/minigames";
 import { pointsOfInterest, type PointOfInterest } from "../../shared/data/pointsOfInterest";
-import type { Body, NetSession, RemotePlayer, TaskStateView } from "../net/session";
+import type { Body, NetSession, RemotePlayer, Sabotage, TaskStateView } from "../net/session";
 
-export type ActionKind = "eliminar" | "reportar" | "llevar" | "emergencia";
+export type ActionKind = "eliminar" | "reportar" | "llevar" | "emergencia" | "saludar" | "incendio" | "apagar" | "tragaperras" | "sabotear" | "arreglar";
+
+/** Cuenta atrás del sabotaje crítico (la pinta UIScene). */
+export type SabotageHud = { title: string; fix: string; secs: number; fixes: number; need: number } | null;
 
 /** Acciones disponibles en este momento (las valida el servidor igualmente). */
 export type Actions = {
@@ -28,7 +32,38 @@ export type Actions = {
   emergency: boolean;
   /** Misión que se puede hacer aquí mismo. */
   task: string | null;
+  /** Jugador al que se puede saludar. */
+  greet: string | null;
+  /** Pirómano: segundos que faltan para poder prender fuego (-1: no es Pirómano o ya arde). */
+  fireWaitS: number;
+  /** Punto de agua cercano durante un incendio (n.º del dibujo). */
+  extinguish: number | null;
+  /** Apagando ahora mismo. */
+  extinguishing: boolean;
+  /** Ludópata junto a un bar con tirada disponible. */
+  slot: boolean;
+  /** Impostores: segundos para poder sabotear (-1: no es impostor o ya hay sabotaje). */
+  sabotageWaitS: number;
+  /** Sabotaje crítico que se puede arreglar aquí. */
+  fix: string | null;
 };
+
+const NO_ACTIONS = (): Actions => ({
+  kill: null,
+  killWaitS: 0,
+  isImpostor: false,
+  carry: null,
+  report: null,
+  emergency: false,
+  task: null,
+  greet: null,
+  fireWaitS: -1,
+  extinguish: null,
+  extinguishing: false,
+  slot: false,
+  sabotageWaitS: -1,
+  fix: null,
+});
 
 export type TaskView = { missionId: string; nombre: string; lugar: number; lugarNombre: string; step: number; steps: number; done: boolean };
 
@@ -82,7 +117,23 @@ export class TownScene extends Phaser.Scene {
   private lastActions = "";
   /** Aro rojo bajo el vecino al que el impostor puede eliminar. */
   private killRing: Phaser.GameObjects.Graphics | null = null;
-  private actions: Actions = { kill: null, killWaitS: 0, isImpostor: false, carry: null, report: null, emergency: false, task: null };
+  private actions: Actions = NO_ACTIONS();
+  /** Sabotaje en curso (incendio del Pirómano). */
+  private sabotage: Sabotage = { kind: "", endsAt: 0, held: [], fixes: 0 };
+  /** Decorado del sabotaje crítico en el mapa (cabeza en el suelo, cacas, agua). */
+  private sabotageProps: Phaser.GameObjects.GameObject[] = [];
+  private lastHud = "";
+  private lastTickS = -1;
+  /** Ya he hecho mi parte del arreglo de este sabotaje. */
+  private myFixDone = false;
+  /** Punto de agua que se está sujetando para apagar (se reenvía cada poco). */
+  private extinguishPoint: number | null = null;
+  private extinguishTimer = 0;
+  /** Niebla de humo para los vecinos durante el incendio. */
+  private fog: Phaser.GameObjects.Image | null = null;
+  private fireMarks: Phaser.GameObjects.Image[] = [];
+  /** Ludópata: jugadores que sabe que son buenos. */
+  private knownGood = new Set<string>();
   private myTasks: TaskView[] = [];
   private lastTasksKey = "";
   /** Puntos de la ruta a la misión más cercana (se reutilizan). */
@@ -103,6 +154,8 @@ export class TownScene extends Phaser.Scene {
   private practiceCelebrated = false;
   private minimapTimer = 0;
   private inMiniGame = false;
+  /** El minijuego abierto es el de arreglar un sabotaje. */
+  private fixing = false;
   private closeMiniGame: (() => void) | null = null;
   /** Ruta que sigue el piloto automático de pruebas (como si se usara el joystick). */
   private autopilot: Vec2[] = [];
@@ -143,12 +196,18 @@ export class TownScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off("resize", this.applyZoom, this));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
-    this.keys = this.input.keyboard!.addKeys("W,A,S,D,E,Q,F,C,X") as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = this.input.keyboard!.addKeys("W,A,S,D,E,Q,F,C,X,G,V,B,T,Z,R") as Record<string, Phaser.Input.Keyboard.Key>;
     this.keys.E.on("down", () => this.interact());
     this.keys.Q.on("down", () => this.doAction("eliminar"));
     this.keys.F.on("down", () => this.doAction("reportar"));
     this.keys.C.on("down", () => this.doAction("llevar"));
     this.keys.X.on("down", () => this.doAction("emergencia"));
+    this.keys.G.on("down", () => this.doAction("incendio"));
+    this.keys.V.on("down", () => this.doAction("saludar"));
+    this.keys.B.on("down", () => this.doAction("apagar"));
+    this.keys.T.on("down", () => this.doAction("tragaperras"));
+    this.keys.Z.on("down", () => this.doAction("sabotear"));
+    this.keys.R.on("down", () => this.doAction("arreglar"));
 
     if (this.session) this.bindSession(this.session);
     else {
@@ -185,6 +244,15 @@ export class TownScene extends Phaser.Scene {
       panelOpen: () => (this.scene.get("UIScene") as unknown as { isPanelOpen(): boolean }).isPanelOpen(),
       chunks: () => this.town.chunkCount,
       occluders: () => this.occluders.length,
+      /** Solo pruebas: simula un incendio para ver la niebla. */
+      fire: (on: boolean) => this.onSabotage({ kind: on ? "incendio" : "", endsAt: 0, held: [], fixes: 0 }),
+      /** Solo pruebas: simula un sabotaje crítico (decorado, cuenta atrás, música) y abre su minijuego. */
+      sabotage: (kind: string) => this.onSabotage({ kind, endsAt: Date.now() + RULES.criticalMs, held: [], fixes: 0 }),
+      fixGame: (kind: string) => this.startFix(kind),
+      sabotageHud: () => (this.lastHud ? JSON.parse(this.lastHud) : null),
+      sabotageMenu: () => (this.dom ??= new Overlays()).showSabotageMenu(() => undefined),
+      fogAlpha: () => (this.fog ? [this.fog.alpha, this.fog.visible, this.fog.depth, this.fog.x, this.fog.y] : null),
+      slot: (won: boolean) => this.dom?.showSlot({ won, id: "x", name: "Ana" }),
       buildMs: () => this.buildMs,
       // (bakeTimes se declara en mapRenderer.ts, todavía sin tipar)
       bakeTimes: () => [...(this.town as unknown as { bakeTimes: number[] }).bakeTimes],
@@ -274,6 +342,8 @@ export class TownScene extends Phaser.Scene {
     this.town.update(this.cameras.main);
     this.ambience.update(time, delta, this.cameras.main);
     this.fadeOccluders();
+    this.updateFire(delta);
+    this.updateSabotageHud();
 
     // sonido del río: más fuerte cuanto más cerca (se mide cada 0,3 s)
     this.riverTimer -= delta;
@@ -330,7 +400,7 @@ export class TownScene extends Phaser.Scene {
           if (r) {
             r.target = { x: p.x, y: p.y };
             r.info = p;
-            r.view.setDisplayName(`${p.alive ? "" : "👻 "}${p.name}${p.connected ? "" : " (sin conexión)"}`);
+            r.view.setDisplayName(`${p.alive ? "" : "👻 "}${this.knownGood.has(p.id) ? "✔ " : ""}${p.name}${p.connected ? "" : " (sin conexión)"}`);
             this.applyVisibility(p.id);
           }
         }
@@ -356,6 +426,20 @@ export class TownScene extends Phaser.Scene {
         session.state.players.forEach((p, id) => (names[id] = p.name));
         sfx.expulsion();
         this.dom?.showVoteResult(v, names);
+      },
+      onSabotage: (sab) => this.onSabotage(sab),
+      onFixed: (f) => {
+        const info = isSabotageKind(f.kind) ? SABOTAGES[f.kind] : null;
+        if (info) this.game.events.emit("toast", `¡Arreglado por ${f.by}! ${info.nombre.replace(/^Han |^Alguien se ha /, "")}: solucionado`);
+      },
+      onGreeting: (g) => this.showGreeting(g.from, g.to),
+      onSlot: (r) => {
+        if (r.won && r.id) {
+          this.knownGood.add(r.id);
+          const v = this.remotes.get(r.id);
+          if (v) v.view.setDisplayName(`✔ ${v.info.name}`);
+        }
+        this.dom?.showSlot(r);
       },
       onGameOver: (g) => {
         const mine = g.roles.find((r) => r.id === session.sessionId);
@@ -454,6 +538,215 @@ export class TownScene extends Phaser.Scene {
     this.bodies.set(b.id, { view, data: b });
   }
 
+  /** Empieza o termina el incendio: niebla para los vecinos y marcas en los puntos de agua. */
+  private onSabotage(sab: Sabotage) {
+    const was = this.sabotage.kind;
+    this.sabotage = sab;
+    if (sab.kind === "incendio" && was !== "incendio") {
+      sfx.reporte();
+      this.game.events.emit("toast", "¡Incendio! Apagadlo entre dos en el Ayuntamiento y el Sagrado Corazón");
+      for (const n of RULES.firePoints) {
+        const p = this.pois.find((q) => q.poi.number === n);
+        if (!p) continue;
+        const mark = addProp(this, "aviso", p.access.x, p.access.y - 30, 1.3).setDepth(19).setTint(0xff7a3a);
+        if (!REDUCED_MOTION) this.tweens.add({ targets: mark, y: mark.y - 8, duration: 500, yoyo: true, repeat: -1 });
+        this.fireMarks.push(mark);
+      }
+    }
+    const critical = isSabotageKind(sab.kind);
+    if (critical && was !== sab.kind) this.startCritical(sab.kind as SabotageKind);
+    if (!critical && isSabotageKind(was)) this.endCritical();
+    if (!sab.kind && was === "incendio") {
+      this.extinguishPoint = null;
+      for (const m of this.fireMarks) m.destroy();
+      this.fireMarks = [];
+      this.game.events.emit("toast", "¡Fuego apagado!");
+    }
+    this.lastActions = "";
+  }
+
+  private sabotagePoi(kind: SabotageKind) {
+    return this.pois.find((q) => q.poi.number === SABOTAGES[kind].lugar) ?? null;
+  }
+
+  /** Empieza un sabotaje crítico: alarma, música de tensión, aviso y decorado en el sitio. */
+  private startCritical(kind: SabotageKind) {
+    this.myFixDone = false;
+    this.clearSabotageProps();
+    sfx.alarma();
+    music.setPhase("sabotaje");
+    this.cameras.main.shake(260, 0.006);
+    const info = SABOTAGES[kind];
+    const poi = this.sabotagePoi(kind);
+    this.game.events.emit("toast", `¡${info.nombre}! Id a ${poi?.poi.name ?? "arreglarlo"}: 40 segundos`);
+    if (!poi) return;
+    const { x, y } = poi.access;
+    const mark = addProp(this, "aviso", x, y - 46, 1.5).setDepth(19).setTint(0xff4a3a);
+    if (!REDUCED_MOTION) this.tweens.add({ targets: mark, y: mark.y - 10, duration: 380, yoyo: true, repeat: -1 });
+    this.sabotageProps.push(mark);
+    if (kind === "cabeza") {
+      const head = addProp(this, "sab-cabeza", x + 34, y + 10, 1.1).setDepth(6).setAngle(-70);
+      this.sabotageProps.push(head);
+    } else if (kind === "piscina") {
+      // flotando en el vaso grande (no junto a la entrada)
+      const water = worldObstacles.find((o) => o.area === "piscina" && o.tipo === "vaso")?.c ?? { x, y: y - 60 };
+      for (let i = 0; i < 4; i++) {
+        const c = addProp(this, "sab-caca", water.x + ((i % 2) * 2 - 1) * 26 + (i > 1 ? 10 : 0), water.y + (i - 1.5) * 40, 0.9).setDepth(6);
+        if (!REDUCED_MOTION) this.tweens.add({ targets: c, y: c.y - 4, angle: 8, duration: 900 + i * 150, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+        this.sabotageProps.push(c);
+      }
+    } else {
+      const water = addProp(this, "sab-riada", x, y, 1.3).setDepth(4).setAlpha(0.92);
+      if (!REDUCED_MOTION) this.tweens.add({ targets: water, scaleX: water.scaleX * 1.08, scaleY: water.scaleY * 1.05, duration: 1100, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+      this.sabotageProps.push(water);
+    }
+  }
+
+  private endCritical() {
+    this.clearSabotageProps();
+    this.myFixDone = false;
+    if (this.inMiniGame && this.fixing) this.closeMiniGame?.();
+    if (this.phase === "partida") music.setPhase("partida");
+  }
+
+  private clearSabotageProps() {
+    for (const o of this.sabotageProps) o.destroy();
+    this.sabotageProps = [];
+  }
+
+  /** Cuenta atrás arriba de la pantalla; tic-tac en los 10 últimos segundos. */
+  private updateSabotageHud() {
+    const kind = this.sabotage.kind;
+    let hud: SabotageHud = null;
+    if (isSabotageKind(kind) && this.phase === "partida") {
+      const now = this.session ? this.session.serverNow() : Date.now();
+      const secs = Math.max(0, Math.ceil((this.sabotage.endsAt - now) / 1000));
+      hud = { title: SABOTAGES[kind].nombre, fix: SABOTAGES[kind].arreglo, secs, fixes: this.sabotage.fixes, need: RULES.fixesNeeded };
+      if (secs <= 10 && secs > 0 && secs !== this.lastTickS) sfx.tic();
+      this.lastTickS = secs;
+    }
+    const key = JSON.stringify(hud);
+    if (key === this.lastHud) return;
+    this.lastHud = key;
+    this.game.events.emit("sabotage-hud", hud);
+  }
+
+  /** Abre el minijuego de arreglo del sabotaje (el servidor exige estar allí y un tiempo mínimo). */
+  private startFix(kind: string) {
+    if (!isSabotageKind(kind) || this.inMiniGame) return;
+    const s = this.session;
+    s?.send("arreglar-inicio", { kind });
+    this.inMiniGame = true;
+    this.fixing = true;
+    const started = Date.now();
+    sfx.abrir();
+    this.closeMiniGame = openMiniGame({
+      title: SABOTAGES[kind].nombre,
+      text: SABOTAGES[kind].arreglo,
+      game: kind,
+      minMs: RULES.fixMinMs,
+      missionId: `sabotaje-${kind}`,
+      onDone: () => {
+        const wait = Math.max(0, RULES.fixMinMs - (Date.now() - started) + 150);
+        window.setTimeout(() => {
+          sfx.mision();
+          this.myFixDone = true;
+          s?.send("arreglar", { kind });
+        }, wait);
+      },
+      onClose: () => {
+        sfx.cerrar();
+        this.inMiniGame = false;
+        this.fixing = false;
+        this.closeMiniGame = null;
+      },
+    });
+  }
+
+  /** Niebla de humo alrededor del jugador (solo vecinos vivos) y apagado continuo. */
+  private updateFire(delta: number) {
+    const burning = this.sabotage.kind === "incendio";
+    const blind = burning && (!this.session || (!!this.me?.alive && !this.isImpostorRole(this.me?.role)));
+    if (blind && !this.fog) this.fog = this.makeFog();
+    if (this.fog) {
+      const target = blind ? 1 : 0;
+      const step = Math.min(delta, 100) / 900;
+      this.fog.setAlpha(target > this.fog.alpha ? Math.min(target, this.fog.alpha + step) : Math.max(target, this.fog.alpha - step));
+      this.fog.setPosition(this.player.x, this.player.y - 30);
+      if (!blind && this.fog.alpha < 0.02) {
+        this.fog.destroy();
+        this.fog = null;
+      }
+    }
+    // mientras se apaga, se repite el aviso al servidor cada 0,6 s (si te alejas, se deja)
+    if (this.extinguishPoint !== null && this.session) {
+      if (!burning || this.actions.extinguish !== this.extinguishPoint) {
+        this.extinguishPoint = null;
+        return;
+      }
+      this.extinguishTimer -= delta;
+      if (this.extinguishTimer <= 0) {
+        this.extinguishTimer = 600;
+        this.session.send("apagar", { punto: this.extinguishPoint });
+      }
+    }
+  }
+
+  private makeFog(): Phaser.GameObjects.Image {
+    const key = "niebla-humo";
+    if (!this.textures.exists(key)) {
+      const size = 1024;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d")!;
+      const g = ctx.createRadialGradient(size / 2, size / 2, 34, size / 2, size / 2, 92);
+      g.addColorStop(0, "rgba(46,36,30,0)");
+      g.addColorStop(0.55, "rgba(52,40,32,0.7)");
+      g.addColorStop(1, "rgba(38,30,26,0.95)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+      // volutas de humo
+      for (let i = 0; i < 160; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 120 + Math.random() * 380;
+        ctx.fillStyle = `rgba(${70 + Math.random() * 30},${58 + Math.random() * 20},${50},${0.12 + Math.random() * 0.15})`;
+        ctx.beginPath();
+        ctx.arc(size / 2 + Math.cos(a) * r, size / 2 + Math.sin(a) * r, 20 + Math.random() * 40, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // resplandor de las llamas en el borde
+      const glow = ctx.createRadialGradient(size / 2, size / 2, 200, size / 2, size / 2, 512);
+      glow.addColorStop(0, "rgba(255,120,40,0)");
+      glow.addColorStop(1, "rgba(255,110,30,0.35)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, size, size);
+      this.textures.addCanvas(key, canvas);
+    }
+    return this.add.image(this.player.x, this.player.y, key).setScale(4).setDepth(55).setAlpha(0);
+  }
+
+  /** Saludo: bocadillo con una mano sobre quien saluda. */
+  private showGreeting(from: string, to: string) {
+    const who = from === this.session?.sessionId ? this.player : this.remotes.get(from)?.view;
+    if (!who || !who.visible) return;
+    const toName = to === this.session?.sessionId ? "ti" : this.remotes.get(to)?.info.name ?? "";
+    const bubble = this.add
+      .text(who.x, who.y - 118, `👋 ¡Buenas${toName ? `, ${toName}` : ""}!`, {
+        fontFamily: FONT,
+        fontSize: "16px",
+        fontStyle: "bold",
+        color: "#2a1c14",
+        backgroundColor: "#f3ead6",
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(62);
+    this.tweens.add({ targets: bubble, y: bubble.y - 18, alpha: 0, delay: 1300, duration: 500, onComplete: () => bubble.destroy() });
+    if (from === this.session?.sessionId && this.me?.role === "vilchez" && !this.me.trackedId) {
+      this.game.events.emit("toast", `¡${toName} queda localizado en tu minimapa!`);
+    }
+  }
+
   /** Si un edificio tapa al propio personaje (está detrás de él), se vuelve translúcido. */
   private fadeOccluders() {
     const px = this.player.x;
@@ -473,7 +766,7 @@ export class TownScene extends Phaser.Scene {
 
   /** Calcula qué acciones están al alcance y avisa a la interfaz si cambian. */
   private updateActions() {
-    const a: Actions = { kill: null, killWaitS: 0, isImpostor: false, carry: null, report: null, emergency: false, task: null };
+    const a: Actions = NO_ACTIONS();
     if (((this.session && this.me) || !this.session) && this.phase === "partida") a.task = this.taskHere()?.missionId ?? null;
     const me = this.me;
     if (this.session && me && me.alive && this.phase === "partida") {
@@ -496,9 +789,42 @@ export class TownScene extends Phaser.Scene {
         if (near(b.data, RULES.reportRange)) a.report = id;
         if (me.role === "gitano" && near(b.data, RULES.carryRange)) a.carry = id;
       }
-      // reunión de emergencia: en el Ayuntamiento (n.º 11) o, para Vilchez, en cualquier sitio
+      // reunión de emergencia: en el Ayuntamiento (n.º 11), si no hay incendio
       const hall = this.pois.find((p) => p.poi.number === 11);
-      a.emergency = (!!hall && near(hall.access, RULES.emergencyRange) && me.emergenciesLeft > 0) || (me.role === "vilchez" && me.specialLeft);
+      a.emergency = !!hall && near(hall.access, RULES.emergencyRange) && me.emergenciesLeft > 0 && !this.sabotage.kind;
+      // saludar: al vecino vivo más cercano
+      let bestGreet = Infinity;
+      for (const [id, r] of this.remotes) {
+        if (!r.info.alive) continue;
+        const d = Math.hypot(r.target.x - pos.x, r.target.y - pos.y);
+        if (d <= RULES.greetRange && d < bestGreet) {
+          bestGreet = d;
+          a.greet = id;
+        }
+      }
+      // Pirómano: cuenta atrás para prender fuego
+      if (me.role === "piromano" && !this.sabotage.kind) a.fireWaitS = Math.max(0, Math.ceil((me.fireReadyAt - this.session.serverNow()) / 1000));
+      // apagar: junto a un punto de agua durante el incendio
+      if (this.sabotage.kind === "incendio") {
+        for (const n of RULES.firePoints) {
+          const p = this.pois.find((q) => q.poi.number === n);
+          if (p && near(p.access, RULES.fireFixRange - 10)) a.extinguish = n;
+        }
+        a.extinguishing = this.extinguishPoint !== null;
+      }
+      // Sabotajes críticos: cualquier impostor, si no hay otro en marcha
+      if (a.isImpostor && !this.sabotage.kind) a.sabotageWaitS = Math.max(0, Math.ceil((me.sabotageReadyAt - this.session.serverNow()) / 1000));
+      if (isSabotageKind(this.sabotage.kind) && !this.myFixDone) {
+        const p = this.sabotagePoi(this.sabotage.kind);
+        if (p && near(p.access, MISSION_RANGE - 15)) a.fix = this.sabotage.kind;
+      }
+      // Ludópata: junto a un bar, una vez por ronda
+      if (me.role === "ludopata" && !me.slotUsed) {
+        a.slot = RULES.slotBars.some((n) => {
+          const p = this.pois.find((q) => q.poi.number === n);
+          return !!p && near(p.access, MISSION_RANGE - 10);
+        });
+      }
     }
     this.actions = a;
     // Aro bajo la víctima posible (solo lo ve el impostor)
@@ -589,7 +915,20 @@ export class TownScene extends Phaser.Scene {
         .filter((t) => !t.done)
         .map((t) => this.pois.find((p) => p.poi.number === t.lugar)?.world)
         .filter((w): w is Vec2 => !!w);
-      this.game.events.emit("minimap", { me: { x: this.player.x, y: this.player.y }, targets });
+      const extras: { pos: Vec2; color: number }[] = [];
+      const tracked = this.me?.trackedId ? this.remotes.get(this.me.trackedId) : null;
+      if (tracked) extras.push({ pos: tracked.target, color: 0x3d8bd6 });
+      if (this.sabotage.kind === "incendio") {
+        for (const n of RULES.firePoints) {
+          const p = this.pois.find((q) => q.poi.number === n);
+          if (p) extras.push({ pos: p.access, color: RULES.firePoints.length && this.sabotage.held.includes(n) ? 0x2f9cc7 : 0xe0702a });
+        }
+      }
+      if (isSabotageKind(this.sabotage.kind)) {
+        const p = this.sabotagePoi(this.sabotage.kind);
+        if (p) extras.push({ pos: p.access, color: 0xff3b30 });
+      }
+      this.game.events.emit("minimap", { me: { x: this.player.x, y: this.player.y }, targets, extras });
     }
     // ruta a la misión pendiente más cercana (se recalcula cada 0,6 s)
     this.routeTimer -= delta;
@@ -684,6 +1023,21 @@ export class TownScene extends Phaser.Scene {
     }
     if (kind === "llevar" && a.carry) s.send("llevar", { body: a.carry });
     if (kind === "emergencia" && a.emergency) s.send("emergencia");
+    if (kind === "saludar" && a.greet) s.send("saludar", { target: a.greet });
+    if (kind === "incendio" && a.fireWaitS === 0) s.send("incendio");
+    if (kind === "tragaperras" && a.slot) {
+      sfx.abrir();
+      s.send("tragaperras");
+    }
+    if (kind === "sabotear" && a.sabotageWaitS === 0) {
+      sfx.abrir();
+      this.dom?.showSabotageMenu((k) => s.send("sabotear", { kind: k }));
+    }
+    if (kind === "arreglar" && a.fix) this.startFix(a.fix);
+    if (kind === "apagar" && a.extinguish !== null) {
+      this.extinguishPoint = this.extinguishPoint === null ? a.extinguish : null;
+      this.extinguishTimer = 0;
+    }
   }
 
   /** Interpolación suave de los demás jugadores hacia su última posición conocida. */
