@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, type Room } from "@colyseus/sdk";
 import { createGameServer } from "../server/app";
 import { ROOM_NAME, isValidCode, type GameState } from "../shared/net/protocol";
-import { isWalkable, traceToWorld } from "../shared/map/townMap";
+import { isWalkable, moveAlongStreets, traceToWorld } from "../shared/map/townMap";
 
 let endpoint = "";
 let stop: () => Promise<void>;
@@ -114,6 +114,36 @@ describe("movimiento sincronizado y validado", () => {
     expect(players(b)[a.sessionId].x).toBeCloseTo(x);
     await a.leave();
     await b.leave();
+  });
+
+  it("mensajes que la red entrega a trompicones no hacen saltar al jugador hacia atrás", async () => {
+    const a = (await new Client(endpoint).create(ROOM_NAME, { name: "Ana" })) as R;
+    await until(() => !!a.state.code);
+    let corrected = 0;
+    a.onMessage("corrected", () => corrected++);
+    const start = players(a)[a.sessionId];
+    // El cliente anda a velocidad normal (230 px/s) pero en un móvil que va a tirones
+    // manda un mensaje cada 100 ms (23 px) y la red los entrega de 3 en 3 cada 300 ms.
+    // Dirección en la que más se avanza por la calle desde el inicio
+    const dirs = Array.from({ length: 8 }, (_, i) => ({ x: Math.cos((i * Math.PI) / 4), y: Math.sin((i * Math.PI) / 4) }));
+    const reach = (d: { x: number; y: number }) => {
+      let p = { x: start.x, y: start.y };
+      for (let i = 0; i < 18; i++) p = moveAlongStreets(p, { x: d.x * 23, y: d.y * 23 }, 10);
+      return Math.hypot(p.x - start.x, p.y - start.y);
+    };
+    const dir = dirs.reduce((best, d) => (reach(d) > reach(best) ? d : best));
+    let pos = { x: start.x, y: start.y };
+    for (let burst = 0; burst < 6; burst++) {
+      await wait(300);
+      for (let i = 0; i < 3; i++) {
+        pos = moveAlongStreets(pos, { x: dir.x * 23, y: dir.y * 23 }, 10);
+        a.send("move", pos);
+      }
+    }
+    expect(Math.hypot(pos.x - start.x, pos.y - start.y)).toBeGreaterThan(150);
+    await until(() => Math.hypot(players(a)[a.sessionId].x - pos.x, players(a)[a.sessionId].y - pos.y) < 0.01);
+    expect(corrected).toBe(0);
+    await a.leave();
   });
 
   it("el servidor rechaza teletransportes y atravesar manzanas", async () => {

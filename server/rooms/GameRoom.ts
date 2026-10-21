@@ -18,7 +18,7 @@ import {
   type Phase,
   type VoteResult,
 } from "../../shared/net/protocol.ts";
-import { defaultSpawn, accessPoint, traceToWorld, validateMove, type Vec2 } from "../../shared/map/townMap.ts";
+import { defaultSpawn, accessPoint, traceToWorld, validateMove, validateMoveWithin, type Vec2 } from "../../shared/map/townMap.ts";
 import { RULES, SKIP_VOTE, assignRoles, checkWinner, tallyVotes, teamOf, type Role } from "../../shared/game/rules.ts";
 import { pointsOfInterest } from "../../shared/data/pointsOfInterest.ts";
 import { MISSION_RANGE, missionById, pickTasks } from "../../shared/game/missions.ts";
@@ -74,6 +74,8 @@ export class GameRoom extends Room<{ state: GameState }> {
   state = new GameState();
   private lastMoveAt = new Map<string, number>();
   private rejectedMoves = new Map<string, number>();
+  /** Distancia que cada jugador puede recorrer todavía (se recarga con el tiempo). */
+  private moveBudget = new Map<string, number>();
   private roles = new Map<string, Role>();
   private votes = new Map<string, string>();
   private killers = new Map<string, string>(); // cuerpo → asesino
@@ -175,6 +177,7 @@ export class GameRoom extends Room<{ state: GameState }> {
     this.state.players.delete(client.sessionId);
     this.lastMoveAt.delete(client.sessionId);
     this.rejectedMoves.delete(client.sessionId);
+    this.moveBudget.delete(client.sessionId);
     this.roles.delete(client.sessionId);
     this.votes.delete(client.sessionId);
     if (this.state.hostId === client.sessionId) this.pickNewHost();
@@ -495,7 +498,12 @@ export class GameRoom extends Room<{ state: GameState }> {
       client.send("corrected", { x: p.x, y: p.y });
       return;
     }
-    const result = validateMove({ x: p.x, y: p.y }, { x: msg.x, y: msg.y }, elapsed, PLAYER_SPEED, PLAYER_RADIUS);
+    // Saldo de distancia: se recarga a un 30 % más de la velocidad máxima y se guarda hasta
+    // 1 s de recorrido, para absorber mensajes que la red entrega a trompicones.
+    const cap = PLAYER_SPEED * 1.0 + 16;
+    const budget = Math.min(cap, (this.moveBudget.get(client.sessionId) ?? 24) + (PLAYER_SPEED * 1.3 * Math.max(0, elapsed)) / 1000);
+    const result = validateMoveWithin({ x: p.x, y: p.y }, { x: msg.x, y: msg.y }, budget, PLAYER_RADIUS);
+    this.moveBudget.set(client.sessionId, Math.max(0, budget - result.used));
     p.x = result.position.x;
     p.y = result.position.y;
     if (!result.accepted) {

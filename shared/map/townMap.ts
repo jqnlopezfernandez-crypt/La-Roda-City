@@ -316,12 +316,36 @@ export function validateMove(
   maxSpeed: number,
   radius: number,
 ): { position: Vec2; accepted: boolean } {
-  if (!Number.isFinite(requested.x) || !Number.isFinite(requested.y)) return { position: from, accepted: false };
   const allowance = maxSpeed * (Math.min(Math.max(elapsedMs, 0), 1000) / 1000) * 1.35 + 12;
+  return validateMoveWithin(from, requested, allowance, radius);
+}
+
+/**
+ * Igual que validateMove pero con un recorrido máximo ya calculado (`allowance`, px).
+ * El servidor lo usa con un "saldo" de distancia que se acumula con el tiempo: así los
+ * mensajes que llegan juntos por culpa de la red no se rechazan (antes el jugador
+ * saltaba hacia atrás de vez en cuando al andar).
+ */
+export function validateMoveWithin(
+  from: Vec2,
+  requested: Vec2,
+  allowance: number,
+  radius: number,
+): { position: Vec2; accepted: boolean; used: number } {
+  if (!Number.isFinite(requested.x) || !Number.isFinite(requested.y)) return { position: from, accepted: false, used: 0 };
   const dx = requested.x - from.x;
   const dy = requested.y - from.y;
   const dist = Math.hypot(dx, dy);
-  if (dist <= allowance && segmentWalkable(from, requested, radius)) return { position: requested, accepted: true };
+  if (dist <= allowance) {
+    if (segmentWalkable(from, requested, radius)) return { position: requested, accepted: true, used: dist };
+    // En una esquina el cliente avanza deslizándose: la recta puede rozar la fachada aunque
+    // el camino real sea válido. Se acepta si, andando por las calles, se llega al mismo sitio.
+    if (isWalkable(requested, radius)) {
+      const walked = moveAlongStreets(from, { x: dx, y: dy }, radius);
+      if (Math.hypot(walked.x - requested.x, walked.y - requested.y) < 8) return { position: requested, accepted: true, used: dist };
+    }
+  }
   const k = dist > allowance ? allowance / dist : 1;
-  return { position: moveAlongStreets(from, { x: dx * k, y: dy * k }, radius), accepted: false };
+  const position = moveAlongStreets(from, { x: dx * k, y: dy * k }, radius);
+  return { position, accepted: false, used: Math.hypot(position.x - from.x, position.y - from.y) };
 }
