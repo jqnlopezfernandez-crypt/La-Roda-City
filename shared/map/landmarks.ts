@@ -28,6 +28,9 @@ const SIGNS: Record<number, SignKind> = {
 };
 
 /** u: dirección de la calle; v: de la calle hacia el edificio. footprint: [delante-izq, delante-der, detrás-der, detrás-izq]. */
+/** Altura del muro de cada edificio (px de mundo, vista 3/4). */
+export const LANDMARK_HEIGHT: Record<BuildingKind, number> = { iglesia: 54, ayuntamiento: 50, estacion: 42, cuartel: 42 };
+
 export type Landmark = { poi: number; kind: BuildingKind; center: Vec2; footprint: Vec2[]; w: number; d: number; u: Vec2; v: Vec2 };
 export type ShopSign = { poi: number; kind: SignKind; x: number; y: number };
 
@@ -99,7 +102,8 @@ function placeBuilding(def: (typeof BUILDINGS)[number]): Landmark | null {
     for (const side of def.soloSuLado ? [sign] : [sign, -sign]) {
       const v = { x: n0.x * side, y: n0.y * side };
       const w = def.w * scale;
-      const off = STREET_HALF_WIDTH + 8 + (def.retranqueo ?? 0) + def.d / 2;
+      // Al sur de la calle se retira la altura del muro (el tejado se dibuja levantado)
+      const off = STREET_HALF_WIDTH + 8 + (def.retranqueo ?? 0) + def.d / 2 + LANDMARK_HEIGHT[def.kind] * Math.max(0, v.y);
       const c = { x: q.x + v.x * off, y: q.y + v.y * off };
       const hu = { x: (u.x * w) / 2, y: (u.y * w) / 2 };
       const hv = { x: (v.x * def.d) / 2, y: (v.y * def.d) / 2 };

@@ -17,6 +17,8 @@ import { landmarks } from "./landmarks";
 
 /** Altura de la fachada dibujada (sobresale hacia arriba de la huella). */
 export const WALL_HEIGHT = 40;
+/** Altura extra de la cumbrera sobre el alero (tejado a dos aguas o a cuatro). */
+export const RIDGE_HEIGHT = 14;
 /** Fondo máximo de una parcela. */
 export const LOT_DEPTH = 72;
 
@@ -644,7 +646,8 @@ export function placeHouses(seed = 7): House[] {
           const dir = normalize(sub(q, p));
           const inward = scale({ x: -dir.y, y: dir.x }, side);
           const bulge = Math.max(0, ...line.inner(d, d + w).map((v) => dot(sub(v, p), inward)));
-          return rowHouse(add(p, scale(inward, FRONT_OFFSET + bulge)), add(q, scale(inward, FRONT_OFFSET + bulge)), MIN_DEPTH, inward).footprint;
+          const back = WALL_HEIGHT * Math.max(0, inward.y);
+          return rowHouse(add(p, scale(inward, FRONT_OFFSET + bulge + back)), add(q, scale(inward, FRONT_OFFSET + bulge + back)), MIN_DEPTH, inward).footprint;
         })(Math.min(MIN_WIDTH, line.L - d));
         if (overlaps(probe) || !siteOk(probe, scene)) {
           d += 6;
@@ -658,8 +661,11 @@ export function placeHouses(seed = 7): House[] {
           const dir = normalize(sub(q, p));
           const inward = scale({ x: -dir.y, y: dir.x }, side);
           const bulge = Math.max(0, ...line.inner(d, d + w).map((v) => dot(sub(v, p), inward)));
-          const a = add(p, scale(inward, FRONT_OFFSET + bulge));
-          const b = add(q, scale(inward, FRONT_OFFSET + bulge));
+          // Vista 3/4: las casas al sur de la calle (fachada hacia el norte) se retiran la
+          // altura del muro para que su tejado, que se dibuja levantado, llegue justo a la acera.
+          const back = WALL_HEIGHT * Math.max(0, inward.y);
+          const a = add(p, scale(inward, FRONT_OFFSET + bulge + back));
+          const b = add(q, scale(inward, FRONT_OFFSET + bulge + back));
           const shallow = rowHouse(a, b, MIN_DEPTH, inward);
           if (overlaps(shallow.footprint) || !siteOk(shallow.footprint, scene)) continue;
           // la casa más honda que quepa

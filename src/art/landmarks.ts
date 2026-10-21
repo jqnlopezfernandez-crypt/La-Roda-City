@@ -7,7 +7,6 @@ const CAL = "#efe8d8";
 const CAL_SOMBRA = "#d6ccb6";
 const OCRE = "#c9a24a";
 const PIEDRA = "#cbbd9f";
-const TEJA = "#b35a3a";
 const MADERA = "#6b4426";
 const CRISTAL = "#3b4f5c";
 
@@ -43,8 +42,8 @@ function archDoor(cx: number, bottom: number, w: number, h: number, seed: number
  * Todas las fachadas ocupan su lienzo entero: el borde inferior es el suelo.
  */
 export const LANDMARK_ART = {
-  iglesia: { largo: [190, 70], corto: [80, 86], torre: [54, 200] },
-  ayuntamiento: { largo: [190, 64], corto: [70, 64], torre: [48, 130] },
+  iglesia: { largo: [190, 70], corto: [80, 86], torre: [36, 120] },
+  ayuntamiento: { largo: [190, 64], corto: [70, 64], torre: [30, 80] },
   estacion: { largo: [220, 56], corto: [60, 56] },
   cuartel: { largo: [160, 52], corto: [60, 52] },
 } as const;
@@ -70,23 +69,16 @@ export function churchShort(): string {
   return s;
 }
 
-/** Campanario (de pie): fuste encalado, cuerpo de campanas, chapitel y cruz. */
-export function churchTower(): string {
+/** Muro del campanario (una cara; se repite en las caras visibles de la torre). */
+export function churchTowerWall(): string {
   const [W, H] = LANDMARK_ART.iglesia.torre;
-  let s = `<ellipse cx="${W / 2}" cy="${H - 4}" rx="${W / 2}" ry="5" fill="${INK}" fill-opacity="0.3"/>`;
-  s += wall(6, 92, W - 12, H - 96, 141);
-  s += windowBox(W / 2 - 7, 120, 14, 22, 142) + windowBox(W / 2 - 7, 160, 14, 20, 143);
-  s += inkShape(rectPts(2, 86, W - 4, 8), PIEDRA, { seed: 144, amp: 0.5, ink: 2 });
-  s += inkShape(rectPts(6, 46, W - 12, 42), CAL, { seed: 145, amp: 0.6, ink: 2.4 });
-  s += archDoor(W / 2 - 9, 82, 12, 28, 146, "#2b2119") + archDoor(W / 2 + 9, 82, 12, 28, 147, "#2b2119");
-  s += inkShape([[W / 2 - 13, 70], [W / 2 - 5, 70], [W / 2 - 5, 78], [W / 2 - 13, 78]], OCRE, { seed: 148, amp: 0.3, ink: 1.2 });
-  s += inkShape(rectPts(3, 40, W - 6, 8), PIEDRA, { seed: 149, amp: 0.5, ink: 2 });
-  s += inkShape([[6, 40], [W - 6, 40], [W / 2, 12]], TEJA, { seed: 150, amp: 0.6, ink: 2.4 });
-  s += `<path d="M${W / 2} 12 L${W - 6} 40 L${W / 2} 40 Z" fill="#1a0f0a" fill-opacity="0.18"/>`;
-  s += inkStroke([[W / 2, 12], [W / 2, 1]], 2.6, INK, 151) + inkStroke([[W / 2 - 5, 5], [W / 2 + 5, 5]], 2.6, INK, 152);
+  let s = wall(1, 1, W - 2, H - 2, 141);
+  s += inkShape(rectPts(1, 40, W - 2, 6), PIEDRA, { seed: 144, amp: 0.4, ink: 1.8 });
+  s += archDoor(W / 2, 34, W * 0.45, 26, 146, "#2b2119");
+  s += inkShape([[W / 2 - 4, 22], [W / 2 + 4, 22], [W / 2 + 4, 30], [W / 2 - 4, 30]], OCRE, { seed: 148, amp: 0.3, ink: 1.2 });
+  s += windowBox(W / 2 - 5, 62, 10, 16, 142) + windowBox(W / 2 - 5, 92, 10, 14, 143);
   return s;
 }
-
 /** Ayuntamiento, lado largo: soportales, balcón corrido, ventanas y rótulo. */
 export function townHallLong(): string {
   const [W, H] = LANDMARK_ART.ayuntamiento.largo;
@@ -109,17 +101,13 @@ export function townHallShort(): string {
   return s;
 }
 
-/** Torre del reloj con bandera (de pie). */
-export function townHallTower(): string {
+/** Muro de la torre del reloj (una cara). */
+export function townHallTowerWall(): string {
   const [W, H] = LANDMARK_ART.ayuntamiento.torre;
-  let s = `<ellipse cx="${W / 2}" cy="${H - 4}" rx="${W / 2 - 2}" ry="4" fill="${INK}" fill-opacity="0.3"/>`;
-  s += wall(6, 40, W - 12, H - 44, 181);
-  s += inkShape([[3, 42], [W - 3, 42], [W / 2, 18]], TEJA, { seed: 182, amp: 0.5, ink: 2.4 });
-  s += inkShape(ellipsePts(W / 2, 62, 11, 11, 16), "#f7f1e2", { seed: 183, amp: 0.3, ink: 2 });
-  s += `<path d="M${W / 2} 62 V54 M${W / 2} 62 L${W / 2 + 6} 65" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`;
-  s += windowBox(W / 2 - 6, 86, 12, 18, 184);
-  s += inkStroke([[W / 2, 20], [W / 2, 1]], 2, INK, 185);
-  s += `<path d="M${W / 2 + 1} 2 h18 v4 h-18z" fill="#c8402e"/><path d="M${W / 2 + 1} 6 h18 v4 h-18z" fill="#e7c03a"/><path d="M${W / 2 + 1} 10 h18 v4 h-18z" fill="#c8402e"/>`;
+  let s = wall(1, 1, W - 2, H - 2, 181);
+  s += inkShape(ellipsePts(W / 2, 20, W * 0.32, W * 0.32, 16), "#f7f1e2", { seed: 183, amp: 0.3, ink: 1.8 });
+  s += `<path d="M${W / 2} 20 V${20 - W * 0.22} M${W / 2} 20 L${W / 2 + W * 0.18} 22" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`;
+  s += windowBox(W / 2 - 5, 44, 10, 16, 184);
   return s;
 }
 

@@ -3,11 +3,11 @@ import { LANDMARK_ART } from "../art/landmarks";
 import { DrawRecorder, type PatternMatrix, type Point } from "./recorder";
 import { STREET_HALF_WIDTH, WORLD_SIZE, cityBlocks, nearestOnNetwork, streetEdges, traceToWorld, worldAreas, worldObstacles } from "../../shared/map/townMap";
 import { RIVER_WIDTH, bridges, riverLines } from "../../shared/map/river";
-import { BRIDGE, LOT_DEPTH, WALL_HEIGHT, bridgeFrame, placeHouses } from "../../shared/map/houses";
+import { BRIDGE, LOT_DEPTH, RIDGE_HEIGHT, WALL_HEIGHT, bridgeFrame, placeHouses } from "../../shared/map/houses";
 import { pointsOfInterest } from "../../shared/data/pointsOfInterest";
 import { AREAS, courtPolygon } from "../../shared/map/places";
 import { RAIL_BED_WIDTH, levelCrossings, railLines } from "../../shared/map/railway";
-import { landmarks, shopSigns } from "../../shared/map/landmarks";
+import { LANDMARK_HEIGHT, landmarks, shopSigns } from "../../shared/map/landmarks";
 import Phaser from "phaser";
 import { addProp } from "../art/runtime";
 
@@ -283,42 +283,51 @@ function buildTownDrawing(): DrawRecorder {
 
   for (const sgn of shopSigns) decorItems.push({ key: `letrero-${sgn.kind}`, x: sgn.x, y: sgn.y });
 
-  // Casas: sombras, tejados (textura orientada según el alero) y cumbreras
+  // Casas y edificios en vista 3/4: muros que miran a la cámara y tejado levantado sobre ellos.
+  // Se pintan de atrás hacia delante (por el borde sur de la huella) para que se tapen bien.
   const houses = placeHouses(7);
-  for (const house of houses) rec.softShadow(house.footprint, 14, 0.55, 7, 10);
-  for (const house of houses) {
-    const roofKey = ROOF_KEYS[Math.floor(house.seed * ROOF_KEYS.length) % ROOF_KEYS.length];
-    for (const face of house.roof) {
-      const matrix: PatternMatrix = [face.eave.x, face.eave.y, -face.eave.y, face.eave.x, face.origin.x, face.origin.y];
-      rec.fillTexture(roofKey, matrix).fillPoints(face.pts);
-      if (face.shade) rec.fillStyle(0x1a0f0a, 0.22).fillPoints(face.pts);
-    }
-    rec.lineStyle(2.5, COLORS.tinta, 0.85);
-    for (const [a, b] of house.ridges) rec.lineBetween(a.x, a.y, b.x, b.y);
-    rec.lineStyle(3, COLORS.tinta, 1).strokePoints(house.footprint, true);
-  }
-
-  // Fachadas de atrás hacia delante; una farola cada 4 fachadas de casa
+  for (const house of houses) rec.softShadow(house.footprint, 14, 0.55, 9, 12);
+  const jobs: { y: number; draw: () => void }[] = [];
   const facadeLamps: Point[] = [];
-  const facades = houses.flatMap((house) => house.facades.map((facade, index) => ({ facade, house, index })));
-  facades.sort((a, b) => Math.max(a.facade.a.y, a.facade.b.y) - Math.max(b.facade.a.y, b.facade.b.y));
   let houseFacadeCount = 0;
-  for (const { facade, house, index } of facades) {
-    const raise = (p: Point) => ({ x: p.x, y: p.y - WALL_HEIGHT });
-    let key: string;
-    if (facade.kind === "chaflan") {
-      if (!CORNER_KEYS.length) continue;
-      key = CORNER_KEYS[Math.floor(house.seed * 97) % CORNER_KEYS.length];
-    } else {
-      key = FACADE_KEYS[(Math.floor(house.seed * FACADE_KEYS.length) + index * 5) % FACADE_KEYS.length];
-    }
-    rec.imageQuad(key, raise(facade.a), raise(facade.b), facade.a);
-    if (facade.kind === "casa" && houseFacadeCount++ % 4 === 0) {
-      facadeLamps.push({ x: (facade.a.x + facade.b.x) / 2, y: (facade.a.y + facade.b.y) / 2 + 3 });
-    }
+  for (const house of houses) {
+    jobs.push({
+      y: Math.max(...house.footprint.map((p) => p.y)),
+      draw: () => {
+        const roofKey = ROOF_KEYS[Math.floor(house.seed * ROOF_KEYS.length) % ROOF_KEYS.length];
+        prismWalls(rec, house.footprint, WALL_HEIGHT, (a, b) => {
+          const index = house.fronts.findIndex(
+            (f) =>
+              (near(f.a, a) && near(f.b, b)) || (near(f.a, b) && near(f.b, a)),
+          );
+          if (index < 0) return null;
+          const f = house.fronts[index];
+          if (Math.hypot(f.b.x - f.a.x, f.b.y - f.a.y) < (f.kind === "chaflan" ? 14 : 26)) return null;
+          if (f.kind === "chaflan") return CORNER_KEYS.length ? CORNER_KEYS[Math.floor(house.seed * 97) % CORNER_KEYS.length] : null;
+          if (houseFacadeCount++ % 4 === 0) facadeLamps.push({ x: (f.a.x + f.b.x) / 2, y: (f.a.y + f.b.y) / 2 + 3 });
+          return FACADE_KEYS[(Math.floor(house.seed * FACADE_KEYS.length) + index * 5) % FACADE_KEYS.length];
+        });
+        const lift = (p: Point): Point => ({ x: p.x, y: p.y - WALL_HEIGHT - (onEdge(p, house.footprint) ? 0 : RIDGE_HEIGHT) });
+        for (const face of house.roof) {
+          const o = lift(face.origin);
+          const matrix: PatternMatrix = [face.eave.x, face.eave.y, -face.eave.y, face.eave.x, o.x, o.y];
+          const pts = face.pts.map(lift);
+          rec.fillTexture(roofKey, matrix).fillPoints(pts);
+          if (face.shade) rec.fillStyle(0x1a0f0a, 0.22).fillPoints(pts);
+        }
+        rec.lineStyle(2.5, COLORS.tinta, 0.85);
+        for (const [a, b] of house.ridges) {
+          const p = lift(a);
+          const q = lift(b);
+          rec.lineBetween(p.x, p.y, q.x, q.y);
+        }
+        rec.lineStyle(3, COLORS.tinta, 1).strokePoints(house.footprint.map((p) => ({ x: p.x, y: p.y - WALL_HEIGHT })), true);
+      },
+    });
   }
-
-  drawLandmarks(rec);
+  landmarkJobs(rec, jobs);
+  jobs.sort((p, q) => p.y - q.y);
+  for (const job of jobs) job.draw();
   for (const bridge of bridges) drawBridge(rec, bridge, isIronBridge(bridge));
   for (const lamp of facadeLamps) {
     rec.glow(lamp.x, lamp.y + 6, 70, 0xffcf73, 0.22);
@@ -580,41 +589,130 @@ function drawBridge(rec: DrawRecorder, bridge: Parameters<typeof bridgeFrame>[0]
   }
 }
 
+const near = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y) < 1;
+
+/** ¿Está el punto sobre el contorno del polígono? (las cumbreras quedan dentro) */
+function onEdge(p: Point, poly: Point[]): boolean {
+  return distToPolyline(p.x, p.y, poly, true) < 0.6;
+}
+
 /**
- * Edificios singulares como las casas: tejado sobre la huella (alineada con la calle) y la
- * fachada del lado que mira a la cámara deformada a lo largo de ese lado. Las torres van de pie.
+ * Muros de un prisma de altura `height` sobre la huella: solo los lados que miran a la
+ * cámara (normal hacia abajo). `facadeFor` da la imagen de fachada de un lado o null
+ * para un muro encalado liso, más oscuro cuanto más mira a la derecha (luz de la izquierda).
  */
-function drawLandmarks(rec: DrawRecorder): void {
+function prismWalls(rec: DrawRecorder, poly: Point[], height: number, facadeFor: (a: Point, b: Point) => string | null): void {
+  const c = polygonCentroid(poly);
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len < 0.5) continue;
+    let n = { x: -(b.y - a.y) / len, y: (b.x - a.x) / len };
+    const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (n.x * (m.x - c.x) + n.y * (m.y - c.y) < 0) n = { x: -n.x, y: -n.y };
+    if (n.y <= 0.02) continue;
+    const [l, r] = a.x <= b.x ? [a, b] : [b, a];
+    const up = (p: Point) => ({ x: p.x, y: p.y - height });
+    const key = facadeFor(a, b);
+    if (key) {
+      rec.imageQuad(key, up(l), up(r), l);
+      rec.fillStyle(0x1a0f0a, Math.max(0, n.x) * 0.18).fillPoints([l, r, up(r), up(l)]);
+    } else {
+      rec.fillStyle(0xeee6d3, 1).fillPoints([l, r, up(r), up(l)]);
+      rec.fillStyle(0xc9a24a, 0.85).fillPoints([l, r, { x: r.x, y: r.y - 6 }, { x: l.x, y: l.y - 6 }]);
+      rec.fillStyle(0x1a0f0a, 0.06 + Math.max(0, n.x) * 0.2).fillPoints([l, r, up(r), up(l)]);
+    }
+    rec.lineStyle(2.5, COLORS.tinta, 0.9).strokePoints([l, r, up(r), up(l)], true);
+  }
+}
+
+/** Tejado a cuatro aguas sobre un cuadrado (torres): caras hasta un vértice levantado. */
+function pyramidRoof(rec: DrawRecorder, base: Point[], lift: number, apex: number): Point {
+  const c = polygonCentroid(base);
+  const top = { x: c.x, y: c.y - lift - apex };
+  const raised = base.map((p) => ({ x: p.x, y: p.y - lift }));
+  raised.forEach((p, i) => {
+    const q = raised[(i + 1) % raised.length];
+    const face = [p, q, top];
+    const shadeAmount = (q.x - p.x) < 0 ? 0.28 : 0.05;
+    rec.fillStyle(0xb35a3a, 1).fillPoints(face);
+    rec.fillStyle(0x1a0f0a, shadeAmount).fillPoints(face);
+    rec.lineStyle(2, COLORS.tinta, 0.9).strokePoints(face, true);
+  });
+  return top;
+}
+
+/**
+ * Edificios singulares en 3/4, igual que las casas: sombra, muros visibles con sus fachadas
+ * (lado largo o corto), tejado a dos aguas levantado y torres como prismas con su tejado.
+ */
+function landmarkJobs(rec: DrawRecorder, jobs: { y: number; draw: () => void }[]): void {
   for (const l of landmarks) {
-    const art = LANDMARK_ART[l.kind];
+    const H = LANDMARK_HEIGHT[l.kind];
     const [fl, fr, br, bl] = l.footprint;
-    rec.softShadow(l.footprint, 16, 0.5, 10, 12);
-    // Tejado: hileras a lo largo de la calle, mitad trasera en sombra y cumbrera
-    const roofKey = ROOF_KEYS[l.poi % ROOF_KEYS.length];
-    rec.fillTexture(roofKey, [l.u.x, l.u.y, -l.u.y, l.u.x, fl.x, fl.y]).fillPoints(l.footprint);
-    const ml = { x: (fl.x + bl.x) / 2, y: (fl.y + bl.y) / 2 };
-    const mr = { x: (fr.x + br.x) / 2, y: (fr.y + br.y) / 2 };
-    rec.fillStyle(0x1a0f0a, 0.2).fillPoints([ml, mr, br, bl]);
-    rec.lineStyle(3, COLORS.tinta, 0.9).lineBetween(ml.x, ml.y, mr.x, mr.y);
-    rec.lineStyle(3.5, COLORS.tinta, 1).strokePoints(l.footprint, true);
-    // Fachada: el lado cuya normal hacia fuera mira más hacia abajo (hacia la cámara)
-    const sides = [
-      { p: fl, q: fr, n: { x: -l.v.x, y: -l.v.y }, largo: true },
-      { p: fr, q: br, n: l.u, largo: false },
-      { p: br, q: bl, n: l.v, largo: true },
-      { p: bl, q: fl, n: { x: -l.u.x, y: -l.u.y }, largo: false },
-    ];
-    const side = sides.reduce((best, sd) => (sd.n.y > best.n.y ? sd : best));
-    const [left, right] = side.p.x <= side.q.x ? [side.p, side.q] : [side.q, side.p];
-    const h = side.largo ? art.largo[1] : art.corto[1];
-    const up = (pt: Point) => ({ x: pt.x, y: pt.y - h });
-    rec.imageQuad(`edificio-${l.kind}-${side.largo ? "largo" : "corto"}`, up(left), up(right), left);
-    // Torres de pie (se ordenan con los personajes como los árboles)
-    if (l.kind === "iglesia") {
-      const t = { x: fl.x + l.u.x * 26 + l.v.x * 30, y: fl.y + l.u.y * 26 + l.v.y * 30 };
-      decorItems.push({ key: "torre-iglesia", x: t.x, y: t.y });
-    } else if (l.kind === "ayuntamiento") {
-      decorItems.push({ key: "torre-ayuntamiento", x: l.center.x, y: l.center.y + 6 });
+    rec.softShadow(l.footprint, 16, 0.5, 12, 14);
+    const y = Math.max(...l.footprint.map((p) => p.y));
+    const longKey = `edificio-${l.kind}-largo`;
+    const shortKey = `edificio-${l.kind}-corto`;
+    jobs.push({
+      y,
+      draw: () => {
+        prismWalls(rec, l.footprint, H, (a, b) => {
+          const isLong = (near(a, fl) && near(b, fr)) || (near(a, fr) && near(b, fl)) || (near(a, br) && near(b, bl)) || (near(a, bl) && near(b, br));
+          return isLong ? longKey : shortKey;
+        });
+        // Tejado a dos aguas con la cumbrera a lo largo de la calle
+        const up = (p: Point, extra = 0) => ({ x: p.x, y: p.y - H - extra });
+        const ml = { x: (fl.x + bl.x) / 2, y: (fl.y + bl.y) / 2 };
+        const mr = { x: (fr.x + br.x) / 2, y: (fr.y + br.y) / 2 };
+        const roofKey = ROOF_KEYS[l.poi % ROOF_KEYS.length];
+        const o = up(fl);
+        const front = [up(fl), up(fr), up(mr, 18), up(ml, 18)];
+        const back = [up(ml, 18), up(mr, 18), up(br), up(bl)];
+        rec.fillTexture(roofKey, [l.u.x, l.u.y, -l.u.y, l.u.x, o.x, o.y]).fillPoints(front);
+        rec.fillTexture(roofKey, [l.u.x, l.u.y, -l.u.y, l.u.x, o.x, o.y]).fillPoints(back);
+        rec.fillStyle(0x1a0f0a, 0.22).fillPoints(l.v.y > 0 ? front : back);
+        const a = up(ml, 18);
+        const b = up(mr, 18);
+        rec.lineStyle(3, COLORS.tinta, 0.9).lineBetween(a.x, a.y, b.x, b.y);
+        rec.lineStyle(3.5, COLORS.tinta, 1).strokePoints([up(fl), up(fr), up(br), up(bl)], true);
+      },
+    });
+    // Torre: prisma cuadrado alineado con el edificio que sale por encima del tejado
+    if (l.kind === "iglesia" || l.kind === "ayuntamiento") {
+      const size = l.kind === "iglesia" ? 36 : 30;
+      const tower = LANDMARK_ART[l.kind].torre;
+      const height = l.kind === "iglesia" ? H + 70 : H + 44;
+      const centre =
+        l.kind === "iglesia"
+          ? { x: fl.x + l.u.x * (size / 2 + 4) + l.v.x * (size / 2 + 4), y: fl.y + l.u.y * (size / 2 + 4) + l.v.y * (size / 2 + 4) }
+          : l.center;
+      const hu = { x: (l.u.x * size) / 2, y: (l.u.y * size) / 2 };
+      const hv = { x: (l.v.x * size) / 2, y: (l.v.y * size) / 2 };
+      const base = [
+        { x: centre.x - hu.x - hv.x, y: centre.y - hu.y - hv.y },
+        { x: centre.x + hu.x - hv.x, y: centre.y + hu.y - hv.y },
+        { x: centre.x + hu.x + hv.x, y: centre.y + hu.y + hv.y },
+        { x: centre.x - hu.x + hv.x, y: centre.y - hu.y + hv.y },
+      ];
+      jobs.push({
+        y: y + 0.01,
+        draw: () => {
+          // Solo la parte que asoma por encima del tejado: el muro arranca a la altura del alero
+          const raisedBase = base.map((p) => ({ x: p.x, y: p.y - H }));
+          prismWalls(rec, raisedBase, height - H, () => `torre-${l.kind}-muro`);
+          const top = pyramidRoof(rec, raisedBase, height - H, l.kind === "iglesia" ? 26 : 18);
+          rec.lineStyle(2.6, COLORS.tinta, 1).lineBetween(top.x, top.y, top.x, top.y - (l.kind === "iglesia" ? 14 : 22));
+          if (l.kind === "iglesia") rec.lineBetween(top.x - 5, top.y - 9, top.x + 5, top.y - 9);
+          else {
+            rec.fillStyle(0xc8402e, 1).fillRect(top.x + 1, top.y - 22, 16, 4);
+            rec.fillStyle(0xe7c03a, 1).fillRect(top.x + 1, top.y - 18, 16, 4);
+            rec.fillStyle(0xc8402e, 1).fillRect(top.x + 1, top.y - 14, 16, 4);
+          }
+          void tower;
+        },
+      });
     }
   }
 }
