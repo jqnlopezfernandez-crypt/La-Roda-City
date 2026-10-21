@@ -28,7 +28,9 @@ const store = {
 };
 
 /** Página publicada sin servidor de juego (VITE_SIN_SERVIDOR=1): solo modo en solitario. */
-const OFFLINE = import.meta.env.VITE_SIN_SERVIDOR === "1";
+// También en una compilación de producción sin VITE_SERVER_URL (p. ej. GitHub Pages antes de tener servidor)
+const OFFLINE =
+  import.meta.env.VITE_SIN_SERVIDOR === "1" || (import.meta.env.PROD && !import.meta.env.VITE_SERVER_URL);
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
 
