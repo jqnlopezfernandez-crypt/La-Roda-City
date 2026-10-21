@@ -8,33 +8,8 @@ const CAL_SOMBRA = "#d6ccb6";
 const OCRE = "#c9a24a";
 const PIEDRA = "#cbbd9f";
 const TEJA = "#b35a3a";
-const TEJA_OSCURA = "#8c4128";
 const MADERA = "#6b4426";
 const CRISTAL = "#3b4f5c";
-
-/** Tejado de teja árabe visto desde arriba: hileras y cumbrera. */
-function roof(x: number, y: number, w: number, h: number, seed: number, ridge: "h" | "v" = "h"): string {
-  let s = inkShape(rectPts(x, y, w, h), TEJA, { seed, amp: 1, ink: 2.6 });
-  const rows = ridge === "h" ? Math.max(3, Math.round(h / 7)) : Math.max(3, Math.round(w / 7));
-  for (let i = 1; i < rows; i++) {
-    if (ridge === "h") {
-      const yy = y + (h * i) / rows;
-      s += inkStroke([[x + 2, yy], [x + w - 2, yy]], 1.1, TEJA_OSCURA, seed + i, 0.8, 0.8);
-    } else {
-      const xx = x + (w * i) / rows;
-      s += inkStroke([[xx, y + 2], [xx, y + h - 2]], 1.1, TEJA_OSCURA, seed + i, 0.8, 0.8);
-    }
-  }
-  // Mitad en sombra y cumbrera
-  if (ridge === "h") {
-    s += `<rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${h / 2 - 1}" fill="#1a0f0a" fill-opacity="0.16"/>`;
-    s += inkStroke([[x + 2, y + h / 2], [x + w - 2, y + h / 2]], 2.4, INK, seed + 40);
-  } else {
-    s += `<rect x="${x + 1}" y="${y + 1}" width="${w / 2 - 1}" height="${h - 2}" fill="#1a0f0a" fill-opacity="0.16"/>`;
-    s += inkStroke([[x + w / 2, y + 2], [x + w / 2, y + h - 2]], 2.4, INK, seed + 40);
-  }
-  return s;
-}
 
 /** Muro encalado con zócalo de ocre. */
 function wall(x: number, y: number, w: number, h: number, seed: number, color = CAL): string {
@@ -61,101 +36,129 @@ function archDoor(cx: number, bottom: number, w: number, h: number, seed: number
   return s;
 }
 
-const shadow = (cx: number, cy: number, rx: number, ry: number) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${INK}" fill-opacity="0.28"/>`;
+/*
+ * Edificios singulares hechos como las casas: el tejado se pinta sobre la huella (alineada
+ * con la calle) y aquí solo se dibujan las fachadas (larga y corta), que el mapa deforma
+ * para seguir la calle, y las torres, que se ponen de pie como los árboles.
+ * Todas las fachadas ocupan su lienzo entero: el borde inferior es el suelo.
+ */
+export const LANDMARK_ART = {
+  iglesia: { largo: [190, 70], corto: [80, 86], torre: [54, 200] },
+  ayuntamiento: { largo: [190, 64], corto: [70, 64], torre: [48, 130] },
+  estacion: { largo: [220, 56], corto: [60, 56] },
+  cuartel: { largo: [160, 52], corto: [60, 52] },
+} as const;
 
-/** Iglesia: nave con tejado a dos aguas, portada con rosetón y campanario a la izquierda. */
-export function churchBuilding(): string {
-  const W = 190;
-  const H = 260;
-  let s = shadow(W / 2 + 8, H - 8, W / 2, 10);
-  // Nave: tejado (huella) y fachada
-  s += roof(46, 120, 136, 76, 11, "v");
-  s += wall(46, 196, 136, 56, 12);
-  // Portada de piedra con frontón
-  s += inkShape([[86, 252], [86, 176], [114, 160], [142, 176], [142, 252]], PIEDRA, { seed: 13, amp: 0.8, ink: 2.6 });
-  s += archDoor(114, 252, 26, 44, 14);
-  s += inkShape(ellipsePts(114, 182, 9, 9, 14), "#d9b25a", { seed: 15, amp: 0.4, ink: 1.8 });
-  s += `<path d="M105 182 H123 M114 173 V191 M108 176 L120 188 M120 176 L108 188" stroke="${INK}" stroke-width="1"/>`;
-  // Cruz sobre el frontón
-  s += inkStroke([[114, 160], [114, 140]], 3, INK, 16);
-  s += inkStroke([[107, 147], [121, 147]], 3, INK, 17);
-  s += windowBox(58, 212, 12, 20, 18) + windowBox(158, 212, 12, 20, 19);
-  // Campanario
-  s += wall(8, 96, 42, 156, 20);
-  s += inkShape(rectPts(4, 90, 50, 8), PIEDRA, { seed: 21, amp: 0.5, ink: 2 });
-  s += inkShape(rectPts(8, 52, 42, 40), CAL, { seed: 22, amp: 0.6, ink: 2.4 });
-  for (const x of [13, 33]) s += archDoor(x + 6, 86, 12, 26, 23 + x, "#2b2119");
-  s += inkShape([[16, 72], [22, 72], [22, 80], [16, 80]], "#c9a24a", { seed: 30, amp: 0.3, ink: 1.2 });
-  s += inkShape(rectPts(5, 46, 48, 8), PIEDRA, { seed: 24, amp: 0.5, ink: 2 });
-  s += inkShape([[8, 46], [50, 46], [29, 14]], TEJA, { seed: 25, amp: 0.6, ink: 2.4 });
-  s += `<path d="M29 14 L50 46 L29 46 Z" fill="#1a0f0a" fill-opacity="0.18"/>`;
-  s += inkStroke([[29, 14], [29, 2]], 2.6, INK, 26);
-  s += inkStroke([[24, 7], [34, 7]], 2.6, INK, 27);
-  s += windowBox(22, 130, 14, 22, 28) + windowBox(22, 190, 14, 22, 29);
+/** Iglesia, lado largo: muro de la nave con contrafuertes, ventanas altas y puerta lateral. */
+export function churchLong(): string {
+  const [W, H] = LANDMARK_ART.iglesia.largo;
+  let s = wall(1, 1, W - 2, H - 2, 101);
+  for (const x of [8, 56, 104, 152]) s += inkShape(rectPts(x, 10, 10, H - 11), PIEDRA, { seed: 102 + x, amp: 0.4, ink: 1.8 });
+  for (const x of [30, 78, 126, 172]) s += archDoor(x, 34, 10, 22, 110 + x, CRISTAL);
+  s += archDoor(95, H - 1, 18, 34, 120);
   return s;
 }
 
-/** Ayuntamiento: dos plantas, balcón corrido, torre del reloj y bandera. */
-export function townHallBuilding(): string {
-  const W = 190;
-  const H = 200;
-  let s = shadow(W / 2, H - 8, W / 2, 10);
-  s += roof(14, 64, 162, 62, 31);
-  s += wall(14, 120, 162, 72, 32);
-  // Torre del reloj en el centro
-  s += inkShape(rectPts(76, 30, 38, 92), CAL, { seed: 33, amp: 0.6, ink: 2.4 });
-  s += inkShape([[72, 30], [118, 30], [95, 6]], TEJA, { seed: 34, amp: 0.5, ink: 2.4 });
-  s += inkShape(ellipsePts(95, 54, 12, 12, 16), "#f7f1e2", { seed: 35, amp: 0.3, ink: 2 });
-  s += `<path d="M95 54 V45 M95 54 L101 57" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`;
-  // Bandera
-  s += inkStroke([[114, 34], [114, 2]], 2, INK, 36);
-  s += `<path d="M115 4 h22 v5 h-22z" fill="#c8402e"/><path d="M115 9 h22 v5 h-22z" fill="#e7c03a"/><path d="M115 14 h22 v5 h-22z" fill="#c8402e"/>`;
-  s += `<path d="M115 4 h22 v15 h-22z" fill="none" stroke="${INK}" stroke-width="1.2"/>`;
-  // Portada con soportales
-  for (const x of [52, 95, 138]) s += archDoor(x, 192, 26, 38, 37 + x, x === 95 ? MADERA : "#3a2c22");
-  // Balcón corrido con ventanas
-  s += inkShape(rectPts(26, 146, 138, 4), INK, { seed: 41, amp: 0.3, ink: 1 });
-  for (let i = 0; i < 12; i++) s += `<path d="M${30 + i * 11.5} 146 V136" stroke="${INK}" stroke-width="1.3"/>`;
-  s += inkStroke([[26, 136], [164, 136]], 2, INK, 42);
-  for (const x of [32, 72, 108, 148]) s += windowBox(x, 124, 12, 18, 43 + x);
-  // Rótulo
-  s += inkShape(rectPts(66, 154, 58, 9), OCRE, { seed: 44, amp: 0.3, ink: 1.4 });
-  s += `<path d="M72 158.5 H118" stroke="${INK}" stroke-width="1.6" stroke-dasharray="4 2"/>`;
+/** Iglesia, lado corto: portada de piedra con frontón, rosetón, puerta y cruz. */
+export function churchShort(): string {
+  const [W, H] = LANDMARK_ART.iglesia.corto;
+  let s = wall(1, 18, W - 2, H - 19, 131);
+  s += inkShape([[14, H - 1], [14, 30], [W / 2, 6], [W - 14, 30], [W - 14, H - 1]], PIEDRA, { seed: 132, amp: 0.7, ink: 2.4 });
+  s += archDoor(W / 2, H - 1, 22, 38, 133);
+  s += inkShape(ellipsePts(W / 2, 32, 8, 8, 14), "#d9b25a", { seed: 134, amp: 0.4, ink: 1.8 });
+  s += `<path d="M${W / 2 - 8} 32 H${W / 2 + 8} M${W / 2} 24 V40" stroke="${INK}" stroke-width="1"/>`;
   return s;
 }
 
-/** Estación: edificio alargado con marquesina, reloj y cartel. */
-export function stationBuilding(): string {
-  const W = 220;
-  const H = 150;
-  let s = shadow(W / 2, H - 6, W / 2, 9);
-  s += roof(10, 30, 200, 56, 51);
-  s += wall(10, 84, 200, 58, 52, "#f0e2c4");
-  for (const x of [26, 62, 146, 182]) s += windowBox(x, 96, 14, 22, 53 + x);
-  s += archDoor(110, 142, 30, 44, 54);
-  // Marquesina de hierro
-  s += inkShape([[4, 102], [216, 102], [210, 92], [10, 92]], "#5d6b70", { seed: 55, amp: 0.5, ink: 2.2 });
-  for (const x of [18, 70, 150, 202]) s += inkStroke([[x, 102], [x, 140]], 2.4, INK, 56 + x);
-  // Reloj y cartel
-  s += inkShape(ellipsePts(110, 72, 10, 10, 14), "#f7f1e2", { seed: 57, amp: 0.3, ink: 2 });
-  s += `<path d="M110 72 V65 M110 72 L115 74" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`;
-  s += inkShape(rectPts(70, 84, 80, 9), "#2f5d7c", { seed: 58, amp: 0.3, ink: 1.4 });
-  s += `<path d="M76 88.5 H144" stroke="#f3ead6" stroke-width="1.8" stroke-dasharray="5 2"/>`;
+/** Campanario (de pie): fuste encalado, cuerpo de campanas, chapitel y cruz. */
+export function churchTower(): string {
+  const [W, H] = LANDMARK_ART.iglesia.torre;
+  let s = `<ellipse cx="${W / 2}" cy="${H - 4}" rx="${W / 2}" ry="5" fill="${INK}" fill-opacity="0.3"/>`;
+  s += wall(6, 92, W - 12, H - 96, 141);
+  s += windowBox(W / 2 - 7, 120, 14, 22, 142) + windowBox(W / 2 - 7, 160, 14, 20, 143);
+  s += inkShape(rectPts(2, 86, W - 4, 8), PIEDRA, { seed: 144, amp: 0.5, ink: 2 });
+  s += inkShape(rectPts(6, 46, W - 12, 42), CAL, { seed: 145, amp: 0.6, ink: 2.4 });
+  s += archDoor(W / 2 - 9, 82, 12, 28, 146, "#2b2119") + archDoor(W / 2 + 9, 82, 12, 28, 147, "#2b2119");
+  s += inkShape([[W / 2 - 13, 70], [W / 2 - 5, 70], [W / 2 - 5, 78], [W / 2 - 13, 78]], OCRE, { seed: 148, amp: 0.3, ink: 1.2 });
+  s += inkShape(rectPts(3, 40, W - 6, 8), PIEDRA, { seed: 149, amp: 0.5, ink: 2 });
+  s += inkShape([[6, 40], [W - 6, 40], [W / 2, 12]], TEJA, { seed: 150, amp: 0.6, ink: 2.4 });
+  s += `<path d="M${W / 2} 12 L${W - 6} 40 L${W / 2} 40 Z" fill="#1a0f0a" fill-opacity="0.18"/>`;
+  s += inkStroke([[W / 2, 12], [W / 2, 1]], 2.6, INK, 151) + inkStroke([[W / 2 - 5, 5], [W / 2 + 5, 5]], 2.6, INK, 152);
   return s;
 }
 
-/** Cuartel de la Guardia Civil / policía: sobrio, con escudo y bandera. */
-export function barracksBuilding(): string {
-  const W = 160;
-  const H = 150;
-  let s = shadow(W / 2, H - 6, W / 2, 9);
-  s += roof(10, 38, 140, 52, 61);
-  s += wall(10, 88, 140, 56, 62, "#e9e2d0");
-  for (const x of [24, 50, 98, 124]) s += windowBox(x, 100, 12, 18, 63 + x);
-  s += inkShape(rectPts(66, 104, 28, 40), "#3b4b6b", { seed: 64, amp: 0.4, ink: 2.2 });
-  s += inkShape([[72, 92], [88, 92], [88, 100], [80, 104], [72, 100]], "#2f5d7c", { seed: 65, amp: 0.3, ink: 1.6 });
-  s += inkStroke([[140, 40], [140, 10]], 2, INK, 66);
-  s += `<path d="M141 12 h18 v4 h-18z" fill="#c8402e"/><path d="M141 16 h18 v5 h-18z" fill="#e7c03a"/><path d="M141 21 h18 v4 h-18z" fill="#c8402e"/>`;
+/** Ayuntamiento, lado largo: soportales, balcón corrido, ventanas y rótulo. */
+export function townHallLong(): string {
+  const [W, H] = LANDMARK_ART.ayuntamiento.largo;
+  let s = wall(1, 1, W - 2, H - 2, 161);
+  for (const x of [40, 95, 150]) s += archDoor(x, H - 1, 26, 30, 162 + x, x === 95 ? MADERA : "#3a2c22");
+  s += inkShape(rectPts(14, 26, W - 28, 3), INK, { seed: 163, amp: 0.3, ink: 1 });
+  for (let i = 0; i < 15; i++) s += `<path d="M${18 + i * 11} 26 V17" stroke="${INK}" stroke-width="1.2"/>`;
+  s += inkStroke([[14, 17], [W - 14, 17]], 1.8, INK, 164);
+  for (const x of [22, 62, 118, 158]) s += windowBox(x, 5, 11, 15, 165 + x);
+  s += inkShape(rectPts(70, 29, 50, 7), OCRE, { seed: 166, amp: 0.3, ink: 1.3 });
+  s += `<path d="M75 32.5 H115" stroke="${INK}" stroke-width="1.4" stroke-dasharray="4 2"/>`;
+  return s;
+}
+
+export function townHallShort(): string {
+  const [W, H] = LANDMARK_ART.ayuntamiento.corto;
+  let s = wall(1, 1, W - 2, H - 2, 171);
+  s += windowBox(14, 10, 11, 15, 172) + windowBox(W - 25, 10, 11, 15, 173);
+  s += archDoor(W / 2, H - 1, 16, 26, 174);
+  return s;
+}
+
+/** Torre del reloj con bandera (de pie). */
+export function townHallTower(): string {
+  const [W, H] = LANDMARK_ART.ayuntamiento.torre;
+  let s = `<ellipse cx="${W / 2}" cy="${H - 4}" rx="${W / 2 - 2}" ry="4" fill="${INK}" fill-opacity="0.3"/>`;
+  s += wall(6, 40, W - 12, H - 44, 181);
+  s += inkShape([[3, 42], [W - 3, 42], [W / 2, 18]], TEJA, { seed: 182, amp: 0.5, ink: 2.4 });
+  s += inkShape(ellipsePts(W / 2, 62, 11, 11, 16), "#f7f1e2", { seed: 183, amp: 0.3, ink: 2 });
+  s += `<path d="M${W / 2} 62 V54 M${W / 2} 62 L${W / 2 + 6} 65" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`;
+  s += windowBox(W / 2 - 6, 86, 12, 18, 184);
+  s += inkStroke([[W / 2, 20], [W / 2, 1]], 2, INK, 185);
+  s += `<path d="M${W / 2 + 1} 2 h18 v4 h-18z" fill="#c8402e"/><path d="M${W / 2 + 1} 6 h18 v4 h-18z" fill="#e7c03a"/><path d="M${W / 2 + 1} 10 h18 v4 h-18z" fill="#c8402e"/>`;
+  return s;
+}
+
+/** Estación, lado largo: marquesina de hierro, ventanas, puerta, reloj y cartel. */
+export function stationLong(): string {
+  const [W, H] = LANDMARK_ART.estacion.largo;
+  let s = wall(1, 1, W - 2, H - 2, 191, "#f0e2c4");
+  for (const x of [18, 54, 152, 188]) s += windowBox(x, 18, 13, 20, 192 + x);
+  s += archDoor(W / 2, H - 1, 26, 34, 193);
+  s += inkShape([[0, 16], [W, 16], [W - 6, 8], [6, 8]], "#5d6b70", { seed: 194, amp: 0.5, ink: 2 });
+  for (const x of [12, 70, 150, 208]) s += inkStroke([[x, 16], [x, H - 2]], 2.2, INK, 195 + x);
+  s += inkShape(rectPts(82, 1, 56, 7), "#2f5d7c", { seed: 196, amp: 0.3, ink: 1.2 });
+  s += `<path d="M86 4.5 H134" stroke="#f3ead6" stroke-width="1.6" stroke-dasharray="5 2"/>`;
+  return s;
+}
+
+export function stationShort(): string {
+  const [W, H] = LANDMARK_ART.estacion.corto;
+  let s = wall(1, 1, W - 2, H - 2, 201, "#f0e2c4");
+  s += windowBox(W / 2 - 7, 14, 14, 20, 202);
+  s += inkShape(ellipsePts(W / 2, 7, 5, 5, 12), "#f7f1e2", { seed: 203, amp: 0.2, ink: 1.4 });
+  return s;
+}
+
+/** Cuartel, lado largo: sobrio, con puerta azul, escudo y bandera. */
+export function barracksLong(): string {
+  const [W, H] = LANDMARK_ART.cuartel.largo;
+  let s = wall(1, 1, W - 2, H - 2, 211, "#e9e2d0");
+  for (const x of [16, 42, 106, 132]) s += windowBox(x, 12, 11, 17, 212 + x);
+  s += inkShape(rectPts(W / 2 - 13, 16, 26, H - 17), "#3b4b6b", { seed: 213, amp: 0.4, ink: 2 });
+  s += inkShape([[W / 2 - 7, 3], [W / 2 + 7, 3], [W / 2 + 7, 10], [W / 2, 14], [W / 2 - 7, 10]], "#2f5d7c", { seed: 214, amp: 0.3, ink: 1.4 });
+  s += `<path d="M${W - 26} 4 h18 v4 h-18z" fill="#c8402e"/><path d="M${W - 26} 8 h18 v4 h-18z" fill="#e7c03a"/><path d="M${W - 26} 12 h18 v4 h-18z" fill="#c8402e"/>`;
+  return s;
+}
+
+export function barracksShort(): string {
+  const [W, H] = LANDMARK_ART.cuartel.corto;
+  let s = wall(1, 1, W - 2, H - 2, 221, "#e9e2d0");
+  s += windowBox(W / 2 - 6, 12, 12, 17, 222);
   return s;
 }
 

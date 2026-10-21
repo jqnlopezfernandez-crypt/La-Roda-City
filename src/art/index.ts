@@ -27,7 +27,7 @@ import {
   sidewalkTexture,
   slabTexture,
 } from "./ground";
-import { barracksBuilding, churchBuilding, shopSign, stationBuilding, townHallBuilding } from "./landmarks";
+import { LANDMARK_ART, barracksLong, barracksShort, churchLong, churchShort, churchTower, shopSign, stationLong, stationShort, townHallLong, townHallShort, townHallTower } from "./landmarks";
 import { CORNER_H, CORNER_ROOFS, CORNER_VARIANTS, CORNER_W, cornerFacade } from "./corners";
 import { FACADE_MODELS, FACADE_VARIANTS, HOUSE_H, HOUSE_W, houseFacade } from "./houses";
 import { PALETTE } from "../game/characters";
@@ -109,10 +109,20 @@ export const ART: ArtEntry[] = [
   { key: "buganvilla", w: 40, h: 56, scale: 1.5, ox: 0.5, oy: 0.95, svg: bougainvillea, grupo: "vegetacion" },
   { key: "pilon", w: 64, h: 44, scale: 1.5, ox: 0.5, oy: 0.88, svg: waterTrough, grupo: "mobiliario" },
   { key: "papelera", w: 16, h: 26, scale: 1.5, ox: 0.5, oy: 0.95, svg: litterBin, grupo: "mobiliario" },
-  { key: "edificio-iglesia", w: 190, h: 260, scale: 1.5, ox: 0.5, oy: 0.97, svg: () => svgDoc(190, 260, churchBuilding()), grupo: "mobiliario" },
-  { key: "edificio-ayuntamiento", w: 190, h: 200, scale: 1.5, ox: 0.5, oy: 0.96, svg: () => svgDoc(190, 200, townHallBuilding()), grupo: "mobiliario" },
-  { key: "edificio-estacion", w: 220, h: 150, scale: 1.5, ox: 0.5, oy: 0.95, svg: () => svgDoc(220, 150, stationBuilding()), grupo: "mobiliario" },
-  { key: "edificio-cuartel", w: 160, h: 150, scale: 1.5, ox: 0.5, oy: 0.95, svg: () => svgDoc(160, 150, barracksBuilding()), grupo: "mobiliario" },
+  // Edificios singulares: fachadas (se deforman sobre la huella) y torres (de pie)
+  ...(
+    [
+      ["iglesia", churchLong, churchShort],
+      ["ayuntamiento", townHallLong, townHallShort],
+      ["estacion", stationLong, stationShort],
+      ["cuartel", barracksLong, barracksShort],
+    ] as const
+  ).flatMap(([kind, long, short]): ArtEntry[] => [
+    { key: `edificio-${kind}-largo`, w: LANDMARK_ART[kind].largo[0], h: LANDMARK_ART[kind].largo[1], scale: 1.5, svg: () => svgDoc(LANDMARK_ART[kind].largo[0], LANDMARK_ART[kind].largo[1], long()), grupo: "casa" },
+    { key: `edificio-${kind}-corto`, w: LANDMARK_ART[kind].corto[0], h: LANDMARK_ART[kind].corto[1], scale: 1.5, svg: () => svgDoc(LANDMARK_ART[kind].corto[0], LANDMARK_ART[kind].corto[1], short()), grupo: "casa" },
+  ]),
+  { key: "torre-iglesia", w: 54, h: 200, scale: 1.5, ox: 0.5, oy: 0.98, svg: () => svgDoc(54, 200, churchTower()), grupo: "mobiliario" },
+  { key: "torre-ayuntamiento", w: 48, h: 130, scale: 1.5, ox: 0.5, oy: 0.97, svg: () => svgDoc(48, 130, townHallTower()), grupo: "mobiliario" },
   ...(["farmacia", "super", "bar", "kebab", "peluqueria", "estanco", "gimnasio", "autoescuela", "tienda", "piscina"] as const).map(
     (kind): ArtEntry => ({ key: `letrero-${kind}`, w: 44, h: 70, scale: 2, ox: 10 / 44, oy: 0.96, svg: () => svgDoc(44, 70, shopSign(kind)), grupo: "mobiliario" }),
   ),

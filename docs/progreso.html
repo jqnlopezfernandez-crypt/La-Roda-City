@@ -80,13 +80,14 @@ li.hecho span { color: var(--muted) }
 
 <script>
 // Estado real del proyecto. Cada paso: [texto, estado, peso]. estado: hecho | curso | pendiente | tuyo
-const ACTUALIZADO = "2026-10-21T18:12:00+02:00";
+const ACTUALIZADO = "2026-10-21T18:45:00+02:00";
 const FASES = [
   ["Mapa fiel de La Roda", [
     ["Calles sacadas de tu trazado, sin inventar ninguna", "hecho", 3],
     ["29 lugares de tu dibujo + Piscina Municipal", "hecho", 2],
     ["Parques Europa, Peces y Chicocos, campo y piscina con la forma de tus capturas", "hecho", 2],
     ["Río, puentes largos y vías del tren con paso a nivel", "hecho", 2],
+    ["Iglesia, Ayuntamiento, Estación y Cuartel dibujados en su sitio; letreros en los comercios", "hecho", 2],
   ]],
   ["Moverse por el pueblo", [
     ["Teclado, joystick táctil, cámara y colisiones", "hecho", 2],
@@ -97,7 +98,9 @@ const FASES = [
     ["Salas privadas con código, anfitrión y reconexión", "hecho", 3],
     ["Servidor que valida movimientos, roles, votos y victoria", "hecho", 3],
     ["Probado con 4 navegadores a la vez en local", "hecho", 2],
-    ["Partidas online por internet (servidor publicado; falta probarlo con dos dispositivos)", "curso", 4],
+    ["Partidas online por internet (probado por Joaquín con 4 dispositivos)", "hecho", 4],
+    ["Arreglado: el jugador se quedaba pillado al andar online", "hecho", 1],
+    ["Eliminar más fácil: más alcance, aro rojo en la víctima y botones visibles en móvil", "hecho", 1],
   ]],
   ["Roles y partida", [
     ["Sapo, Gitano, Roeño y Vilchez", "hecho", 3],
@@ -125,12 +128,12 @@ const FASES = [
     ["Crear tu cuenta de Render", "hecho", 1],
     ["Servidor multijugador en marcha en Render (responde /salud)", "hecho", 1],
     ["Web conectada al servidor (Crear sala / Unirse)", "hecho", 1],
-    ["Probar una partida real entre tu móvil y otro dispositivo", "tuyo", 3],
+    ["Probar una partida real entre tu móvil y otro dispositivo", "hecho", 3],
   ]],
 ];
 
 const YOU = [
-  "Probar una partida: abre la web en dos dispositivos, crea una sala en uno y únete con el código en el otro. Contarme qué tal.",
+  "Probar otra partida y contarme si sigue quedándose pillado o si eliminar funciona bien.",
   "Decirme qué calle del dibujo es la Calle Rosa y dónde está la Casa de la Juventud.",
 ];
 

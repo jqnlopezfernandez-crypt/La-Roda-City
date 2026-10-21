@@ -4,6 +4,7 @@
  * dibujo del mapa, la colocación de casas (para no pisarlos) y las pruebas.
  */
 import { pointsOfInterest } from "../data/pointsOfInterest";
+import { AREAS } from "./places";
 import { RIVER_WIDTH, riverLines } from "./river";
 import { RAIL_BED_WIDTH, railLines } from "./railway";
 import { STREET_HALF_WIDTH, segments, traceToWorld, worldAreas, type Vec2 } from "./townMap";
@@ -12,9 +13,10 @@ export type BuildingKind = "iglesia" | "ayuntamiento" | "estacion" | "cuartel";
 export type SignKind = "farmacia" | "super" | "bar" | "kebab" | "peluqueria" | "estanco" | "gimnasio" | "autoescuela" | "tienda" | "piscina";
 
 /** Edificio por número de lugar: tamaño de la huella (ancho a lo largo de la calle × fondo). */
-const BUILDINGS: { poi: number; kind: BuildingKind; w: number; d: number }[] = [
+const BUILDINGS: { poi: number; kind: BuildingKind; w: number; d: number; retranqueo?: number; soloSuLado?: boolean }[] = [
   { poi: 13, kind: "iglesia", w: 190, d: 80 },
-  { poi: 11, kind: "ayuntamiento", w: 190, d: 70 },
+  // Detrás de su entrada (la placita donde está el punto), en ese lado de la calle
+  { poi: 11, kind: "ayuntamiento", w: 170, d: 70, retranqueo: 34, soloSuLado: true },
   { poi: 26, kind: "estacion", w: 220, d: 60 },
   { poi: 18, kind: "cuartel", w: 160, d: 60 },
 ];
@@ -25,7 +27,8 @@ const SIGNS: Record<number, SignKind> = {
   12: "estanco", 23: "farmacia", 24: "farmacia", 30: "peluqueria", 15: "gimnasio", 6: "autoescuela", 20: "tienda", 31: "piscina",
 };
 
-export type Landmark = { poi: number; kind: BuildingKind; center: Vec2; footprint: Vec2[]; w: number; d: number };
+/** u: dirección de la calle; v: de la calle hacia el edificio. footprint: [delante-izq, delante-der, detrás-der, detrás-izq]. */
+export type Landmark = { poi: number; kind: BuildingKind; center: Vec2; footprint: Vec2[]; w: number; d: number; u: Vec2; v: Vec2 };
 export type ShopSign = { poi: number; kind: SignKind; x: number; y: number };
 
 /** Tramo de calle más cercano: punto y dirección. */
@@ -65,7 +68,7 @@ function inPolygon(p: Vec2, pts: Vec2[]): boolean {
 }
 
 /** ¿La huella está libre de calles, zonas, río y vías? (se comprueba en una rejilla de puntos) */
-function footprintFree(pts: Vec2[]): boolean {
+function footprintFree(pts: Vec2[], ignore: Set<string>): boolean {
   const [a, b, , d] = pts;
   for (let i = 0; i <= 8; i++) {
     for (let j = 0; j <= 4; j++) {
@@ -74,7 +77,7 @@ function footprintFree(pts: Vec2[]): boolean {
         y: a.y + ((b.y - a.y) * i) / 8 + ((d.y - a.y) * j) / 4,
       };
       if (nearestStreet(p).dist < STREET_HALF_WIDTH + 4) return false;
-      if (worldAreas.some((ar) => (ar.kind === "circulo" ? Math.hypot(p.x - ar.c.x, p.y - ar.c.y) < ar.r + 6 : inPolygon(p, ar.pts)))) return false;
+      if (worldAreas.some((ar) => !ignore.has(ar.id) && (ar.kind === "circulo" ? Math.hypot(p.x - ar.c.x, p.y - ar.c.y) < ar.r + 6 : inPolygon(p, ar.pts)))) return false;
       if (lineDist(p, riverLines) < RIVER_WIDTH / 2 + 14) return false;
       if (lineDist(p, railLines) < RAIL_BED_WIDTH / 2 + 8) return false;
     }
@@ -91,11 +94,12 @@ function placeBuilding(def: (typeof BUILDINGS)[number]): Landmark | null {
   // Lado del punto primero; si no cabe, el otro; si tampoco, más estrecho
   const n0 = { x: -u.y, y: u.x };
   const sign = n0.x * toPoi.x + n0.y * toPoi.y >= 0 ? 1 : -1;
+  const ignore = new Set(AREAS.filter((a) => a.lugar === def.poi).map((a) => a.id));
   for (const scale of [1, 0.85, 0.7]) {
-    for (const side of [sign, -sign]) {
+    for (const side of def.soloSuLado ? [sign] : [sign, -sign]) {
       const v = { x: n0.x * side, y: n0.y * side };
       const w = def.w * scale;
-      const off = STREET_HALF_WIDTH + 8 + def.d / 2;
+      const off = STREET_HALF_WIDTH + 8 + (def.retranqueo ?? 0) + def.d / 2;
       const c = { x: q.x + v.x * off, y: q.y + v.y * off };
       const hu = { x: (u.x * w) / 2, y: (u.y * w) / 2 };
       const hv = { x: (v.x * def.d) / 2, y: (v.y * def.d) / 2 };
@@ -105,7 +109,7 @@ function placeBuilding(def: (typeof BUILDINGS)[number]): Landmark | null {
         { x: c.x + hu.x + hv.x, y: c.y + hu.y + hv.y },
         { x: c.x - hu.x + hv.x, y: c.y - hu.y + hv.y },
       ];
-      if (footprintFree(footprint)) return { poi: def.poi, kind: def.kind, center: c, footprint, w, d: def.d };
+      if (footprintFree(footprint, ignore)) return { poi: def.poi, kind: def.kind, center: c, footprint, w, d: def.d, u, v };
     }
   }
   return null;

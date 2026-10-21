@@ -1,4 +1,5 @@
 import { ART, HOUSE_KEYS, ROOF_KEYS } from "../art/index";
+import { LANDMARK_ART } from "../art/landmarks";
 import { DrawRecorder, type PatternMatrix, type Point } from "./recorder";
 import { STREET_HALF_WIDTH, WORLD_SIZE, cityBlocks, nearestOnNetwork, streetEdges, traceToWorld, worldAreas, worldObstacles } from "../../shared/map/townMap";
 import { RIVER_WIDTH, bridges, riverLines } from "../../shared/map/river";
@@ -280,12 +281,6 @@ function buildTownDrawing(): DrawRecorder {
   const inArea = (x: number, y: number) =>
     worldAreas.some((area) => (area.kind === "circulo" ? Math.hypot(x - area.c.x, y - area.c.y) < area.r + 8 : pointInPolygon(x, y, area.pts)));
 
-  // Edificios singulares: sombra en el suelo (el edificio es un sprite que tapa al pasar detrás)
-  for (const l of landmarks) {
-    rec.softShadow(l.footprint, 16, 0.45, 8, 10);
-    const bottom = Math.max(...l.footprint.map((p) => p.y));
-    decorItems.push({ key: `edificio-${l.kind}`, x: l.center.x, y: bottom - 4 });
-  }
   for (const sgn of shopSigns) decorItems.push({ key: `letrero-${sgn.kind}`, x: sgn.x, y: sgn.y });
 
   // Casas: sombras, tejados (textura orientada según el alero) y cumbreras
@@ -323,6 +318,7 @@ function buildTownDrawing(): DrawRecorder {
     }
   }
 
+  drawLandmarks(rec);
   for (const bridge of bridges) drawBridge(rec, bridge, isIronBridge(bridge));
   for (const lamp of facadeLamps) {
     rec.glow(lamp.x, lamp.y + 6, 70, 0xffcf73, 0.22);
@@ -581,6 +577,45 @@ function drawBridge(rec: DrawRecorder, bridge: Parameters<typeof bridgeFrame>[0]
     const p = at(along, -side - Math.sign(-side) * 4);
     rec.glow(p.x, p.y + 6, 70, 0xffcf73, 0.22);
     decorItems.push({ key: "farola", x: p.x, y: p.y });
+  }
+}
+
+/**
+ * Edificios singulares como las casas: tejado sobre la huella (alineada con la calle) y la
+ * fachada del lado que mira a la cámara deformada a lo largo de ese lado. Las torres van de pie.
+ */
+function drawLandmarks(rec: DrawRecorder): void {
+  for (const l of landmarks) {
+    const art = LANDMARK_ART[l.kind];
+    const [fl, fr, br, bl] = l.footprint;
+    rec.softShadow(l.footprint, 16, 0.5, 10, 12);
+    // Tejado: hileras a lo largo de la calle, mitad trasera en sombra y cumbrera
+    const roofKey = ROOF_KEYS[l.poi % ROOF_KEYS.length];
+    rec.fillTexture(roofKey, [l.u.x, l.u.y, -l.u.y, l.u.x, fl.x, fl.y]).fillPoints(l.footprint);
+    const ml = { x: (fl.x + bl.x) / 2, y: (fl.y + bl.y) / 2 };
+    const mr = { x: (fr.x + br.x) / 2, y: (fr.y + br.y) / 2 };
+    rec.fillStyle(0x1a0f0a, 0.2).fillPoints([ml, mr, br, bl]);
+    rec.lineStyle(3, COLORS.tinta, 0.9).lineBetween(ml.x, ml.y, mr.x, mr.y);
+    rec.lineStyle(3.5, COLORS.tinta, 1).strokePoints(l.footprint, true);
+    // Fachada: el lado cuya normal hacia fuera mira más hacia abajo (hacia la cámara)
+    const sides = [
+      { p: fl, q: fr, n: { x: -l.v.x, y: -l.v.y }, largo: true },
+      { p: fr, q: br, n: l.u, largo: false },
+      { p: br, q: bl, n: l.v, largo: true },
+      { p: bl, q: fl, n: { x: -l.u.x, y: -l.u.y }, largo: false },
+    ];
+    const side = sides.reduce((best, sd) => (sd.n.y > best.n.y ? sd : best));
+    const [left, right] = side.p.x <= side.q.x ? [side.p, side.q] : [side.q, side.p];
+    const h = side.largo ? art.largo[1] : art.corto[1];
+    const up = (pt: Point) => ({ x: pt.x, y: pt.y - h });
+    rec.imageQuad(`edificio-${l.kind}-${side.largo ? "largo" : "corto"}`, up(left), up(right), left);
+    // Torres de pie (se ordenan con los personajes como los árboles)
+    if (l.kind === "iglesia") {
+      const t = { x: fl.x + l.u.x * 26 + l.v.x * 30, y: fl.y + l.u.y * 26 + l.v.y * 30 };
+      decorItems.push({ key: "torre-iglesia", x: t.x, y: t.y });
+    } else if (l.kind === "ayuntamiento") {
+      decorItems.push({ key: "torre-ayuntamiento", x: l.center.x, y: l.center.y + 6 });
+    }
   }
 }
 
