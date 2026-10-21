@@ -1,0 +1,180 @@
+<title>Progreso La Roda City</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* Hoja de ruta: cabecera con el porcentaje total, fases en columna, y lo que falta de Joaquín al final */
+:root {
+  --bg: #f4ede1; --panel: #fffaf2; --ink: #2a1c14; --muted: #6f5f50; --line: #e1d4c1;
+  --accent: #b5532a; --done: #3f7d4e; --doing: #c98a1b; --todo: #a99a88; --you: #2f6f8f;
+  --display: "Rye", Georgia, serif; --body: "Nunito", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #18110d; --panel: #231912; --ink: #f3ead6; --muted: #b7a690; --line: #3a2b20;
+  --accent: #e0874f; --done: #6fb47e; --doing: #e7b14a; --todo: #7d6e60; --you: #6fb2d4; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #18110d; --panel: #231912; --ink: #f3ead6; --muted: #b7a690; --line: #3a2b20;
+  --accent: #e0874f; --done: #6fb47e; --doing: #e7b14a; --todo: #7d6e60; --you: #6fb2d4; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); line-height: 1.5 }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 22px }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 6vw, 46px); margin: 0; line-height: 1.05; text-wrap: balance }
+h1 span { color: var(--accent) }
+.sub { color: var(--muted); margin: 4px 0 0 }
+.total { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; display: grid; gap: 10px }
+.total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap }
+.pct { font-family: var(--display); font-size: clamp(44px, 9vw, 64px); line-height: 1; font-variant-numeric: tabular-nums }
+.bar { height: 14px; border-radius: 99px; background: var(--line); overflow: hidden; display: flex }
+.bar i { display: block; height: 100% }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted) }
+.legend b { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px }
+.updated { font-size: 13px; color: var(--muted) }
+.phases { display: grid; gap: 14px }
+.phase { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 12px }
+.phase header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap }
+.phase h2 { font-size: 18px; margin: 0; font-weight: 900 }
+.phase .n { color: var(--muted); font-weight: 800; margin-right: 6px }
+.mini { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px }
+.mini-bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin: 8px 0 6px }
+.mini-bar i { display: block; height: 100%; background: var(--done) }
+ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px }
+li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; font-size: 15px; min-width: 0 }
+.st { width: 14px; height: 14px; border-radius: 50%; margin-top: 4px; border: 2px solid var(--todo) }
+.st.hecho { background: var(--done); border-color: var(--done) }
+.st.curso { border-color: var(--doing); background: conic-gradient(var(--doing) 0 50%, transparent 0) }
+.st.tuyo { border-color: var(--you); border-style: dashed }
+li.hecho span { color: var(--muted) }
+.tag { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--you); margin-left: 6px }
+.you { border: 2px dashed var(--you); border-radius: 14px; padding: 14px 16px; display: grid; gap: 8px }
+.you h2 { margin: 0; font-size: 18px; font-weight: 900; color: var(--you) }
+.you ol { margin: 0; padding-left: 20px; display: grid; gap: 6px }
+@media (prefers-reduced-motion: no-preference) { .bar i, .mini-bar i { transition: width .6s ease } }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>La Roda <span>City</span></h1>
+    <p class="sub">Camino hasta tener el juego publicado en internet, con partidas online desde el móvil.</p>
+  </div>
+
+  <section class="total" aria-label="Progreso total">
+    <div class="total-row">
+      <div class="pct" id="pct">0%</div>
+      <div class="updated" id="updated"></div>
+    </div>
+    <div class="bar" id="bar" role="img" aria-label="Barra de progreso"></div>
+    <div class="legend">
+      <span><b style="background:var(--done)"></b>Hecho y comprobado</span>
+      <span><b style="background:var(--doing)"></b>En curso</span>
+      <span><b style="background:var(--todo)"></b>Pendiente (lo hago yo)</span>
+      <span><b style="background:var(--you)"></b>Necesita algo de Joaquín</span>
+    </div>
+  </section>
+
+  <section class="you" id="you" aria-label="Lo que necesito de ti"></section>
+
+  <section class="phases" id="phases"></section>
+</div>
+
+<script>
+// Estado real del proyecto. Cada paso: [texto, estado, peso]. estado: hecho | curso | pendiente | tuyo
+const ACTUALIZADO = "2026-10-21T18:05:00+02:00";
+const FASES = [
+  ["Mapa fiel de La Roda", [
+    ["Calles sacadas de tu trazado, sin inventar ninguna", "hecho", 3],
+    ["29 lugares de tu dibujo + Piscina Municipal", "hecho", 2],
+    ["Parques Europa, Peces y Chicocos, campo y piscina con la forma de tus capturas", "hecho", 2],
+    ["Río, puentes largos y vías del tren con paso a nivel", "hecho", 2],
+  ]],
+  ["Moverse por el pueblo", [
+    ["Teclado, joystick táctil, cámara y colisiones", "hecho", 2],
+    ["Casas sin solaparse, con esquinas", "hecho", 2],
+    ["Roeño que camina con pasos de verdad", "hecho", 2],
+  ]],
+  ["Multijugador", [
+    ["Salas privadas con código, anfitrión y reconexión", "hecho", 3],
+    ["Servidor que valida movimientos, roles, votos y victoria", "hecho", 3],
+    ["Probado con 4 navegadores a la vez en local", "hecho", 2],
+    ["Partidas online por internet (necesita el servidor publicado)", "tuyo", 4],
+  ]],
+  ["Roles y partida", [
+    ["Sapo, Gitano, Roeño y Vilchez", "hecho", 3],
+    ["Eliminar, reportar, reunión, votación y final", "hecho", 3],
+  ]],
+  ["Misiones", [
+    ["10 misiones con minijuego ilustrado en sus sitios reales", "hecho", 4],
+    ["Puertas de Calle Rosa 4 y 5 (falta saber qué calle es)", "tuyo", 1],
+    ["Cámaras de la Casa de la Juventud (falta su sitio)", "tuyo", 1],
+  ]],
+  ["Aspecto, sonido y móvil", [
+    ["Arte del pueblo, Roeño en 12 colores y vida ambiental", "hecho", 3],
+    ["Música y sonidos con panel de volumen", "hecho", 2],
+    ["Pantalla de inicio arreglada (Roeño entero, tildes y eñes)", "hecho", 1],
+    ["Móvil en horizontal, pantalla completa y aviso para girar", "hecho", 2],
+    ["Fluidez en móvil: medir y aligerar en un móvil real", "curso", 2],
+    ["Arte pintado a mano (opcional, con tus imágenes)", "tuyo", 1],
+  ]],
+  ["Publicar en internet", [
+    ["Preparar la web para GitHub Pages (flujo automático) e instalable a pantalla completa", "hecho", 2],
+    ["Preparar el servidor del juego (Docker + Render)", "hecho", 2],
+    ["Crear tu cuenta de GitHub y el repositorio", "tuyo", 2],
+    ["Crear tu cuenta de Render y conectar el repositorio", "tuyo", 2],
+    ["Subir el código y poner la dirección del servidor", "pendiente", 2],
+    ["Probar una partida real entre tu móvil y otro dispositivo", "pendiente", 3],
+  ]],
+];
+
+const YOU = [
+  "Crear una cuenta gratuita en GitHub (github.com), conectarla en claude.ai → Ajustes → Conectores, crear un repositorio vacío llamado la-roda-city y decirme tu usuario. Yo subo el código.",
+  "Crear una cuenta gratuita en Render (render.com) entrando con esa cuenta de GitHub.",
+  "Decirme qué calle del dibujo es la Calle Rosa y dónde está la Casa de la Juventud.",
+];
+
+const COLORS = { hecho: "var(--done)", curso: "var(--doing)", pendiente: "var(--todo)", tuyo: "var(--you)" };
+const all = FASES.flatMap(([, pasos]) => pasos);
+const total = all.reduce((s, p) => s + p[2], 0);
+const done = all.reduce((s, p) => s + (p[1] === "hecho" ? p[2] : p[1] === "curso" ? p[2] / 2 : 0), 0);
+const pct = Math.round((done / total) * 100);
+
+// Contador animado hasta el porcentaje real
+const pctEl = document.getElementById("pct");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (reduce) pctEl.textContent = pct + "%";
+else { let v = 0; const t = setInterval(() => { v = Math.min(pct, v + 2); pctEl.textContent = v + "%"; if (v >= pct) clearInterval(t); }, 18); }
+
+const bar = document.getElementById("bar");
+for (const estado of ["hecho", "curso", "tuyo", "pendiente"]) {
+  const w = all.filter((p) => p[1] === estado).reduce((s, p) => s + p[2], 0);
+  const i = document.createElement("i");
+  i.style.background = COLORS[estado];
+  i.style.width = (w / total) * 100 + "%";
+  bar.appendChild(i);
+}
+
+// "Hace X minutos": se recalcula cada minuto
+const updated = document.getElementById("updated");
+function ago() {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(ACTUALIZADO)) / 60000));
+  const txt = mins < 1 ? "ahora mismo" : mins < 60 ? `hace ${mins} min` : mins < 1440 ? `hace ${Math.round(mins / 60)} h` : `hace ${Math.round(mins / 1440)} días`;
+  updated.textContent = "Actualizado " + txt;
+}
+ago(); setInterval(ago, 60000);
+
+const you = document.getElementById("you");
+you.innerHTML = `<h2>Lo que necesito de ti</h2><ol>${YOU.map((t) => `<li style="display:list-item">${t}</li>`).join("")}</ol>`;
+
+const phases = document.getElementById("phases");
+FASES.forEach(([nombre, pasos], idx) => {
+  const t = pasos.reduce((s, p) => s + p[2], 0);
+  const d = pasos.reduce((s, p) => s + (p[1] === "hecho" ? p[2] : p[1] === "curso" ? p[2] / 2 : 0), 0);
+  const p = Math.round((d / t) * 100);
+  const el = document.createElement("article");
+  el.className = "phase";
+  el.innerHTML = `<header><h2><span class="n">${idx + 1}</span>${nombre}</h2><span class="mini">${p}%</span></header>
+    <div class="mini-bar"><i style="width:${p}%"></i></div>
+    <ul>${pasos.map(([texto, estado]) => `<li class="${estado}"><i class="st ${estado}" aria-label="${estado}"></i><span>${texto}${estado === "tuyo" ? '<em class="tag">tú</em>' : ""}</span></li>`).join("")}</ul>`;
+  phases.appendChild(el);
+});
+</script>

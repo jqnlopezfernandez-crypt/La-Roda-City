@@ -1,0 +1,16 @@
+node_modules
+dist/
+dist-server/
+.toolchain-linux/
+scripts/*.log
+scripts/*.tgz
+scripts/tarea-actual.cmd
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+comprobacion.log
+instalacion-node.log
+test-results/
+dist-pagina/
+dist-pagina/

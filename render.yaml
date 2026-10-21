@@ -1,0 +1,9 @@
+# Plano para Render (https://render.com): servidor web con WebSocket desde el Dockerfile.
+# Solo se usa si eliges Render; otros alojamientos con Docker y WebSocket también valen.
+services:
+  - type: web
+    name: la-roda-city-servidor
+    runtime: docker
+    plan: free
+    healthCheckPath: /salud
+    autoDeploy: true

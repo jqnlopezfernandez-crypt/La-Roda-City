@@ -1,0 +1,35 @@
+{
+  "name": "la-roda-city",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.json && vitest run",
+    "server:dev": "tsx watch server/index.ts",
+    "server:build": "tsc --noEmit -p server/tsconfig.json && esbuild server/index.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=dist-server/index.mjs",
+    "server:start": "node dist-server/index.mjs",
+    "build:pagina": "tsc --noEmit -p tsconfig.json && vite build --mode pagina && node tools/empaquetar_pagina.mjs"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.18.18",
+    "@colyseus/schema": "^5.0.42",
+    "@colyseus/sdk": "0.18.5",
+    "@colyseus/ws-transport": "^0.18.4",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "esbuild": "^0.25.12",
+    "tsx": "4.23.15",
+    "typescript": "5.7.3",
+    "vite": "6.4.4",
+    "vitest": "3.2.7"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

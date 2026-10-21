@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-server
+dist-pagina
+.toolchain-linux
+_archivo
+scripts
+public/referencias
+*.log

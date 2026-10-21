@@ -1,0 +1,12 @@
+{
+  "name": "La Roda City",
+  "short_name": "La Roda City",
+  "description": "Un pueblo, mil sospechas. Juego de deducción social en La Roda de Andalucía.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#18110d",
+  "theme_color": "#18110d"
+}
