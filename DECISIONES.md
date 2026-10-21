@@ -24,6 +24,14 @@
 | 2026-10-21 | Vía principal tomada de la línea de vía de la captura de Apple Maps; la vía de la estación y su enlace, de la captura del usuario | Las vías son decorado (no cortan el paso); paso a nivel donde cruzan una calle; las casas y árboles no se colocan encima. La vía de la estación termina en una topera donde acaba la captura. |
 | 2026-10-21 | Obstáculos poligonales (vasos de la piscina, vestuarios) y entradas a parques y piscina | Las zonas nuevas quedan fuera del trazado: se añade un acceso desde el extremo de calle más cercano para poder entrar andando. |
 
+## Animaciones y pantallas (22-10-2026)
+- Las escenas de reunión, expulsión, revelación y final son HTML + SVG (no Phaser): se leen mejor en el
+  móvil, escalan con la pantalla y reutilizan la hoja de sprites del Roeño como fondo CSS.
+- Votar se hace tocando al vecino en la plaza (la lista desaparece); "Saltar voto" sigue al lado.
+- La fase de resultado pasa de 5 s a 7 s (`RULES.resultMs`) para que dé tiempo a ver irse al expulsado.
+- Los minijuegos no se escalan con `transform`/`zoom` (rompería las coordenadas de arrastre): se estrecha
+  la zona de juego hasta que la tarjeta cabe en alto.
+
 ## Limitaciones conocidas
 - **Escala real desconocida.** No hay barra de escala legible; las distancias del juego no son metros.
 - **Edificios fuera de las manzanas cerradas**: el dibujo no los incluye, así que allí se ve campo.
@@ -33,7 +41,7 @@
 - **Número 21**: no existe en la lista ni en el dibujo.
 
 ## Preguntas abiertas para el usuario
-1. ¿Las posiciones de los 29 lugares son correctas? (Se pueden revisar en el juego con la tecla R.)
+1. ¿Las posiciones de los lugares son correctas? (Se pueden revisar en el juego con la tecla R.)
 2. ¿Qué significa el trazo gris del centro? (¿calles peatonales, casco antiguo…?)
 3. ¿Dónde están Madishon, Calle Rosa (números 4 y 5) y la Casa de la Juventud?
 4. ¿"Fregar platos" en Martín, Monforte y Leiva es una misión en uno de los tres (como ahora, al azar) o hay que fregar en los tres?

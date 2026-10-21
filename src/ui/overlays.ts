@@ -3,7 +3,7 @@ import { floodScene, headlessStatueScene, poolScene } from "../art/sabotages";
 import { SLOT_ART, SLOT_SYMBOLS, slotCabinetSvg, slotLeverSvg, type SlotSymbol } from "../art/slot";
 import { coinSvg } from "../art/minigames";
 import { sfx } from "../game/sounds";
-import { ballotSvg, plazaMeetingScene, roadOutScene, soulArt, stampSvg, tumbleweedSvg, zasBurstArt } from "../art/scenes";
+import { ballotSvg, plazaMeetingScene, roleEmblemSvg, roadOutScene, soulArt, stampSvg, tumbleweedSvg, zasBurstArt } from "../art/scenes";
 import { ART } from "../art/index";
 import { roenoMeta } from "../game/animation";
 
@@ -25,6 +25,8 @@ function abueloStyle(look: number, frame: number): string {
 const svg = (w: number, h: number, body: string) => `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
 const zasBurstSvg = () => svg(120, 90, zasBurstArt());
 const soulSvg = () => svg(40, 52, soulArt());
+/** Tono de voz (Hz) de cada color de vecino: abuelos, voces graves con algo de variedad. */
+const VOICE_PITCH = [118, 140, 104, 158, 126, 112, 150, 98, 134, 166, 122, 108];
 /** Lo que se oye en la plaza mientras se discute (todos hablan a la vez). */
 const CHATTER = [
   "¡Ha sido él!", "¿Yo? ¡Qué va!", "Ojú…", "Yo estaba en el estanco", "Lo vi por el Sagrado", "¡Que no, que no!",
@@ -76,7 +78,7 @@ export class Overlays {
   private timerId = 0;
   private chatterId = 0;
   /** Vecinos dibujados en la plaza de la reunión (por id), para no rehacerlos en cada cambio. */
-  private crowd = new Map<string, { el: HTMLButtonElement; voted: boolean }>();
+  private crowd = new Map<string, { el: HTMLButtonElement; voted: boolean; look: number }>();
 
   constructor() {
     this.root = document.createElement("div");
@@ -99,22 +101,30 @@ export class Overlays {
   }
 
   /** Rol secreto al empezar la partida (se cierra solo). */
-  showRole(role: string, partner: string | null) {
+  showRole(role: string, partner: string | null, look = 0) {
     const info = roleInfo(role)!;
     const imp = info.equipo === "impostores";
     const el = this.card(
       `ov-role ${imp ? "imp" : "crew"}`,
-      `<p class="ov-kicker">Tu papel en La Roda</p>
-       <h2>${info.nombre}</h2>
-       <p class="ov-team">${imp ? "Impostor" : "Vecino"}</p>
-       <p>${escapeHtml(info.descripcion)}</p>
-       ${ROLE_HINT[role] ? `<p class="ov-hint">${escapeHtml(ROLE_HINT[role])}</p>` : ""}
-       ${partner ? `<p class="ov-partner">Tu compañero impostor: <b>${escapeHtml(partner)}</b></p>` : ""}
-       <button class="btn btn-primary" data-close>¡Vamos!</button>`,
+      `<div class="rl-stage">
+         <div class="rl-spot"></div>
+         <i class="rl-abuelo" style="${abueloStyle(look, FRAME.frente)}"></i>
+         <span class="rl-emblem">${roleEmblemSvg(role)}</span>
+         <p class="rl-shh">Shhh… tu papel</p>
+       </div>
+       <div class="rl-text">
+         <p class="ov-kicker">Tu papel en La Roda</p>
+         <h2>${info.nombre}</h2>
+         <p class="ov-team">${imp ? "Impostor" : "Vecino"}</p>
+         <p>${escapeHtml(info.descripcion)}</p>
+         ${ROLE_HINT[role] ? `<p class="ov-hint">${escapeHtml(ROLE_HINT[role])}</p>` : ""}
+         ${partner ? `<p class="ov-partner">Tu compañero impostor: <b>${escapeHtml(partner)}</b></p>` : ""}
+         <button class="btn btn-primary" data-close>¡Vamos!</button>
+       </div>`,
     );
     const close = () => el.remove();
     el.querySelector("[data-close]")!.addEventListener("click", close);
-    window.setTimeout(close, 6000);
+    window.setTimeout(close, 7000);
   }
 
   /** Reunión: motivo, cuenta atrás y votación. */
@@ -152,6 +162,7 @@ export class Overlays {
     this.timerId = window.setInterval(tick, 250);
     // Todos hablan a la vez: bocadillos que salen aquí y allá
     if (!REDUCED_MOTION_UI) this.chatterId = window.setInterval(() => this.chatter(), 850);
+    sfx.murmullo(true);
   }
 
   /** Un vecino vivo al azar suelta una frase en un bocadillo. */
@@ -164,6 +175,9 @@ export class Overlays {
     b.textContent = CHATTER[Math.floor(Math.random() * CHATTER.length)];
     c.el.appendChild(b);
     c.el.classList.add("talking");
+    // cada vecino con su voz (más grave o más aguda según su color) y a su lado del estéreo
+    const left = parseFloat(c.el.style.left) || 50;
+    sfx.habla(VOICE_PITCH[c.look % VOICE_PITCH.length], Math.max(3, Math.min(9, Math.round(b.textContent.length / 3.5))), (left - 50) / 60);
     window.setTimeout(() => {
       b.remove();
       c.el.classList.remove("talking");
@@ -188,7 +202,7 @@ export class Overlays {
         if (i % 3 === 1 && i >= perRow / 2) el.querySelector<HTMLElement>(".mt-abuelo")!.classList.add("flip");
         el.addEventListener("click", () => this.castVote(p.id));
         crowd.appendChild(el);
-        c = { el, voted: false };
+        c = { el, voted: false, look: p.look };
         this.crowd.set(p.id, c);
       }
       const row = n > 6 && i >= perRow ? 1 : 0;
@@ -229,6 +243,7 @@ export class Overlays {
   }
 
   closeMeeting() {
+    if (this.meetingEl) sfx.murmullo(false);
     window.clearInterval(this.timerId);
     window.clearInterval(this.chatterId);
     this.meetingEl?.remove();
@@ -309,19 +324,36 @@ export class Overlays {
     window.setTimeout(() => el.remove(), 4200);
   }
 
-  showGameOver(g: GameOver, myId: string, isHost: boolean, onBack: () => void) {
+  showGameOver(g: GameOver, myId: string, isHost: boolean, onBack: () => void, looks: Record<string, number> = {}) {
     this.closeMeeting();
     const mine = g.roles.find((r) => r.id === myId);
     const won = mine ? roleInfo(mine.role)?.equipo === g.winner : false;
+    const impWin = g.winner === "impostores";
+    const winners = g.roles.filter((r) => roleInfo(r.role)?.equipo === g.winner);
+    const confetti = impWin
+      ? ""
+      : Array.from({ length: 26 }, (_, i) => `<i class="go-conf" style="left:${(i * 37) % 100}%;background:${["#d8342a", "#f2c14e", "#3f8a4a", "#f3ead6", "#5c97ff"][i % 5]};animation-delay:${(i % 9) * 0.18}s;animation-duration:${2.2 + (i % 4) * 0.4}s"></i>`).join("");
     const el = this.card(
-      `ov-end ${g.winner === "impostores" ? "imp" : "crew"}`,
-      `<p class="ov-kicker">${won ? "¡Has ganado!" : "Has perdido"}</p>
-       <h2>Ganan ${g.winner === "impostores" ? "los impostores" : "los vecinos"}</h2>
-       <p>${escapeHtml(g.reason)}</p>
-       <ul class="ov-roles">${g.roles
-         .map((r) => `<li><span>${escapeHtml(r.name)}</span><b class="${roleInfo(r.role)?.equipo === "impostores" ? "imp" : ""}">${roleInfo(r.role)?.nombre ?? r.role}</b></li>`)
-         .join("")}</ul>
-       ${isHost ? '<button class="btn btn-primary" data-back>Volver a la sala</button>' : '<p class="ov-sub">Esperando a que el anfitrión vuelva a la sala…</p>'}`,
+      `ov-end ${impWin ? "imp" : "crew"}`,
+      `<div class="go-stage">${confetti}
+         <div class="go-row">${winners
+           .map(
+             (r, i) => `<div class="go-win" style="animation-delay:${(i * 0.13).toFixed(2)}s">
+               <span class="go-emblem">${roleEmblemSvg(r.role)}</span>
+               <i class="go-abuelo" style="${abueloStyle(looks[r.id] ?? i, FRAME.frente)};animation-delay:${(i * 0.13).toFixed(2)}s"></i>
+               <b style="color:${PALETTE[(looks[r.id] ?? i) % PALETTE.length].name}">${escapeHtml(r.name)}</b></div>`,
+           )
+           .join("")}</div>
+       </div>
+       <div class="go-text">
+         <p class="ov-kicker">${won ? "¡Has ganado!" : "Has perdido"}</p>
+         <h2>Ganan ${impWin ? "los impostores" : "los vecinos"}</h2>
+         <p>${escapeHtml(g.reason)}</p>
+         <ul class="ov-roles">${g.roles
+           .map((r) => `<li><span>${escapeHtml(r.name)}</span><b class="${roleInfo(r.role)?.equipo === "impostores" ? "imp" : ""}">${roleInfo(r.role)?.nombre ?? r.role}</b></li>`)
+           .join("")}</ul>
+         ${isHost ? '<button class="btn btn-primary" data-back>Volver a la sala</button>' : '<p class="ov-sub">Esperando a que el anfitrión vuelva a la sala…</p>'}
+       </div>`,
     );
     el.querySelector("[data-back]")?.addEventListener("click", onBack);
     return el;

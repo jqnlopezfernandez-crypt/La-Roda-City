@@ -80,11 +80,11 @@ li.hecho span { color: var(--muted) }
 
 <script>
 // Estado real del proyecto. Cada paso: [texto, estado, peso]. estado: hecho | curso | pendiente | tuyo
-const ACTUALIZADO = "2026-10-21T18:45:00+02:00";
+const ACTUALIZADO = "2026-10-22T01:05:00+02:00";
 const FASES = [
   ["Mapa fiel de La Roda", [
     ["Calles sacadas de tu trazado, sin inventar ninguna", "hecho", 3],
-    ["29 lugares de tu dibujo + Piscina Municipal", "hecho", 2],
+    ["Lugares de tu dibujo + Piscina Municipal (sin Casa Empresa ni Pelosblancos; Maskom junto al Sagrado)", "hecho", 2],
     ["Parques Europa, Peces y Chicocos, campo y piscina con la forma de tus capturas", "hecho", 2],
     ["Río, puentes largos y vías del tren con paso a nivel", "hecho", 2],
     ["Iglesia, Ayuntamiento, Estación y Cuartel dibujados en su sitio; letreros en los comercios", "hecho", 2],
@@ -92,7 +92,7 @@ const FASES = [
   ["Moverse por el pueblo", [
     ["Teclado, joystick táctil, cámara y colisiones", "hecho", 2],
     ["Casas sin solaparse, con esquinas", "hecho", 2],
-    ["Roeño que camina con pasos de verdad", "hecho", 2],
+    ["Roeño que camina con pasos de verdad (y polvillo al pisar)", "hecho", 2],
   ]],
   ["Multijugador", [
     ["Salas privadas con código, anfitrión y reconexión", "hecho", 3],
@@ -103,17 +103,26 @@ const FASES = [
     ["Eliminar más fácil: más alcance, aro rojo en la víctima y botones visibles en móvil", "hecho", 1],
   ]],
   ["Roles y partida", [
-    ["Sapo, Gitano, Roeño y Vilchez", "hecho", 3],
     ["Eliminar, reportar, reunión, votación y final", "hecho", 3],
+    ["Roles nuevos: Sapo, Gitano, Pirómano · Roeño, Vilchez (rastrea), Conserje, Ludópata", "hecho", 3],
+    ["Edificios en 3/4 que tapan al personaje (se vuelven translúcidos)", "hecho", 2],
+    ["Sabotajes: cabeza del Sagrado (ya a su tamaño), cacas en la piscina, riada en el Erillas", "hecho", 3],
+    ["Animaciones de matar (¡ZAS!, polvo y alma) y viñeta de la víctima", "hecho", 2],
+    ["Reunión en la plaza del Ayuntamiento con todos hablando (bocadillos y voces)", "hecho", 3],
+    ["Votos con papeleta y el viejo que se va del pueblo por la carretera", "hecho", 2],
+    ["Revelación del papel con foco y emblema; final con los ganadores celebrando", "hecho", 2],
+    ["Tragaperras del Ludópata nueva, con símbolos propios del pueblo", "hecho", 2],
   ]],
   ["Misiones", [
     ["10 misiones con minijuego ilustrado en sus sitios reales", "hecho", 4],
+    ["Minijuegos que caben enteros en el móvil (también en horizontal), sello de ¡HECHO!", "hecho", 2],
+    ["Ilustraciones de las misiones aún más trabajadas", "pendiente", 2],
     ["Puertas de Calle Rosa 4 y 5 (falta saber qué calle es)", "tuyo", 1],
     ["Cámaras de la Casa de la Juventud (falta su sitio)", "tuyo", 1],
   ]],
   ["Aspecto, sonido y móvil", [
     ["Arte del pueblo, Roeño en 12 colores y vida ambiental", "hecho", 3],
-    ["Música y sonidos con panel de volumen", "hecho", 2],
+    ["Música y sonidos con panel de volumen; voces inventadas y murmullo en la reunión", "hecho", 2],
     ["Pantalla de inicio arreglada (Roeño entero, tildes y eñes)", "hecho", 1],
     ["Móvil en horizontal, pantalla completa y aviso para girar", "hecho", 2],
     ["Fluidez en móvil: medir y aligerar en un móvil real", "curso", 2],
@@ -133,7 +142,7 @@ const FASES = [
 ];
 
 const YOU = [
-  "Probar otra partida y contarme si sigue quedándose pillado o si eliminar funciona bien.",
+  "Probar una partida con las nuevas animaciones (reunión en la plaza, expulsión, tragaperras) y decirme qué tal en el móvil.",
   "Decirme qué calle del dibujo es la Calle Rosa y dónde está la Casa de la Juventud.",
 ];
 

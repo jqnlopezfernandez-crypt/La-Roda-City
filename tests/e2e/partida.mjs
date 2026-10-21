@@ -47,8 +47,8 @@ const startedIn = Date.now() - tStart;
 ok('cada uno ve la pantalla de su rol', (await Promise.all(pages.map((p) => until(p, () => window.__laRoda.roleShown())))).every(Boolean));
 await pages[1].screenshot({ path: `${out}/partida-rol.png` });
 const roles = await Promise.all(pages.map((p) => p.evaluate(() => window.__laRoda.role())));
-const impIdx = roles.findIndex((r) => r === 'sapo' || r === 'gitano');
-ok('hay exactamente un impostor', roles.filter((r) => r === 'sapo' || r === 'gitano').length === 1, JSON.stringify(roles));
+const impIdx = roles.findIndex((r) => ['sapo', 'gitano', 'piromano'].includes(r));
+ok('hay exactamente un impostor', roles.filter((r) => ['sapo', 'gitano', 'piromano'].includes(r)).length === 1, JSON.stringify(roles));
 // cerrar la pantalla del rol
 for (const p of pages) await p.click('.ov-role [data-close]').catch(() => {});
 

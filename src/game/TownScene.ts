@@ -268,6 +268,13 @@ export class TownScene extends Phaser.Scene {
           { p1: "Pepe", p4: "Rocío" },
           { p1: 3 },
         ),
+      roleDemo: (role = "sapo", look = 3) => (this.dom ??= new Overlays()).showRole(role, role === "sapo" ? "Lola" : null, look),
+      endDemo: (imp = false) =>
+        (this.dom ??= new Overlays()).showGameOver(
+          { winner: imp ? "impostores" : "tripulacion", reason: imp ? "Los impostores igualan a los vecinos." : "Han expulsado a todos los impostores.", roles: [
+            { id: "a", name: "Ana", role: "roeno" }, { id: "b", name: "Pepe", role: "sapo" }, { id: "c", name: "Lola", role: "vilchez" }, { id: "d", name: "Curro", role: "conserje" }, { id: "e", name: "Mari", role: "gitano" }, { id: "f", name: "Paco", role: "ludopata" }] },
+          "a", true, () => undefined, { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5 },
+        ),
       deathDemo: () => {
         this.dom ??= new Overlays();
         this.onMyDeath(1);
@@ -469,7 +476,9 @@ export class TownScene extends Phaser.Scene {
         const won = !!mine && teamOf(mine.role as Role) === g.winner;
         sfx.fin(won);
         music.setPhase(won ? "fin" : "derrota");
-        this.dom?.showGameOver(g, session.sessionId, session.state.hostId === session.sessionId, () => session.send("volver"));
+        const looks: Record<string, number> = {};
+        session.state.players.forEach((p, id) => (looks[id] = p.look));
+        this.dom?.showGameOver(g, session.sessionId, session.state.hostId === session.sessionId, () => session.send("volver"), looks);
       },
     });
   }
@@ -532,7 +541,7 @@ export class TownScene extends Phaser.Scene {
     if (this.isImpostorRole(this.me.role)) {
       for (const r of this.remotes.values()) if (this.isImpostorRole(r.info.role)) partner = r.info.name;
     }
-    this.dom?.showRole(this.me.role, partner);
+    this.dom?.showRole(this.me.role, partner, this.me.look);
     sfx.rol();
     this.game.events.emit("my-role", this.me.role);
   }

@@ -795,8 +795,13 @@ export function openMiniGame(options: MiniGameOptions): () => void {
       if (finished) return;
       finished = true;
       message.textContent = "\xA1Hecho!";
+      // Sello de "¡HECHO!" que cae sobre el juego
+      const stamp = document.createElement("div");
+      stamp.className = "mg-done";
+      stamp.textContent = "\xA1HECHO!";
+      overlay.querySelector(".ov-card")!.appendChild(stamp);
       options.onDone();
-      window.setTimeout(close, 900);
+      window.setTimeout(close, 1100);
     },
   };
   switch (options.game) {

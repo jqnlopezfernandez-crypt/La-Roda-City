@@ -247,6 +247,49 @@ function blip(ctx: BaseAudioContext, dest: AudioNode, when: number, freq: number
   osc.stop(when + duration * 2 + 0.05);
 }
 
+/** Formantes (F1, F2) de las vocales para la "voz" de los vecinos. */
+const VOWELS: [number, number][] = [[800, 1200], [450, 1900], [320, 2200], [480, 850], [340, 700]];
+
+/**
+ * Habla inventada (galimatías) de un vecino: sílabas con una onda de sierra pasada por
+ * dos filtros de formante, con la entonación que sube y baja. `pitch` en Hz (voz de abuelo: 95–170).
+ */
+export function gibberish(ctx: BaseAudioContext, dest: AudioNode, when: number, pitch: number, syllables: number, gain: number, pan = 0): void {
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  panner.connect(dest);
+  let t = when;
+  for (let i = 0; i < syllables; i++) {
+    const dur = 0.07 + Math.random() * 0.07;
+    const [f1, f2] = VOWELS[Math.floor(Math.random() * VOWELS.length)];
+    const osc = ctx.createOscillator();
+    osc.type = "sawtooth";
+    // entonación: sube en la pregunta del medio y cae al final
+    const contour = 1 + 0.12 * Math.sin((i / Math.max(1, syllables - 1)) * Math.PI) - (i === syllables - 1 ? 0.12 : 0);
+    osc.frequency.setValueAtTime(pitch * contour * (0.95 + Math.random() * 0.1), t);
+    osc.frequency.linearRampToValueAtTime(pitch * contour * (0.9 + Math.random() * 0.2), t + dur);
+    const amp = ctx.createGain();
+    amp.gain.setValueAtTime(0, t);
+    amp.gain.linearRampToValueAtTime(gain, t + 0.012);
+    amp.gain.setTargetAtTime(0, t + dur * 0.7, 0.02);
+    for (const [f, q, g] of [[f1, 6, 6], [f2, 9, 3]] as const) {
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = f * (0.9 + Math.random() * 0.2);
+      bp.Q.value = q;
+      const fg = ctx.createGain();
+      fg.gain.value = g;
+      osc.connect(bp).connect(fg).connect(amp);
+    }
+    amp.connect(panner);
+    osc.start(t);
+    osc.stop(t + dur + 0.1);
+    t += dur + (Math.random() < 0.2 ? 0.06 : 0.012);
+  }
+}
+
+let murmurId = 0;
+
 // Pisadas: se limitan a una cada 90 ms y alternan izquierda/derecha
 let lastStepAt = 0;
 let stepSide = 1;
@@ -365,6 +408,19 @@ export const sfx = {
       blip(ctx, dest, when + 0.22, 247, 0.4, 0.05, "triangle");
       pluckNote(ctx, dest, 40, when + 0.22, 0.3, "apagada");
     }),
+  /** Un vecino dice algo en la plaza (galimatías con su tono de voz). */
+  habla: (pitch: number, syllables: number, pan = 0) =>
+    playEffect(0.25, (ctx, dest, when) => gibberish(ctx, dest, when, pitch, syllables, 0.09, pan)),
+  /** Murmullo de fondo de la plaza durante la reunión (true = empieza, false = para). */
+  murmullo(on: boolean) {
+    window.clearInterval(murmurId);
+    murmurId = 0;
+    if (!on) return;
+    murmurId = window.setInterval(() => {
+      if (Math.random() < 0.55)
+        playEffect(0.5, (ctx, dest, when) => gibberish(ctx, dest, when, 95 + Math.random() * 80, 1 + Math.floor(Math.random() * 3), 0.022, Math.random() * 1.6 - 0.8));
+    }, 150);
+  },
   /** Golpe de sello de goma (resultado de la votación). */
   sello: () =>
     playEffect(0.2, (ctx, dest, when) => {

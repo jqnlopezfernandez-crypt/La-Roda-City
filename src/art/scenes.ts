@@ -266,3 +266,65 @@ export function tumbleweedSvg(): string {
   }
   return `<svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 }
+
+/** Emblema de cada papel para la pantalla de revelación (SVG 64×64). */
+export function roleEmblemSvg(role: string): string {
+  let s = `<ellipse cx="32" cy="58" rx="20" ry="4" fill="${INK}" opacity="0.3"/>`;
+  const blob = (cx: number, cy: number, rx: number, ry: number, fill: string, seed: number, ink = 2.6) =>
+    `<path d="${smoothPath(wobble(ellipsePts(cx, cy, rx, ry, 12), 1, seed))}" fill="${fill}" stroke="${INK}" stroke-width="${ink}"/>`;
+  switch (role) {
+    case "sapo":
+      // Sapo con cara de pocos amigos y un cuchillo
+      s += blob(30, 38, 22, 16, "#6f9a3a", 1);
+      s += blob(20, 24, 7, 7, "#86b04a", 2) + blob(40, 24, 7, 7, "#86b04a", 3);
+      s += `<circle cx="20" cy="24" r="3.4" fill="#fff8d0" stroke="${INK}" stroke-width="1.4"/><circle cx="40" cy="24" r="3.4" fill="#fff8d0" stroke="${INK}" stroke-width="1.4"/>`;
+      s += `<path d="M17 22 h6 M37 22 h6" stroke="${INK}" stroke-width="2"/><circle cx="20" cy="25" r="1.4" fill="${INK}"/><circle cx="40" cy="25" r="1.4" fill="${INK}"/>`;
+      s += `<path d="M16 40 q14 6 28 0" stroke="${INK}" stroke-width="2.2" fill="none"/>`;
+      s += speckles(14, 34, 32, 14, 6, ["#4f7424"], 1, 2, 0.8, 4);
+      s += `<g transform="rotate(35 50 40)"><path d="M48 18 l5 0 l1 22 l-7 0Z" fill="#dfe4e8" stroke="${INK}" stroke-width="2"/><rect x="46" y="40" width="10" height="4" rx="1" fill="#6b4a2e" stroke="${INK}" stroke-width="1.6"/><rect x="48.5" y="44" width="5" height="10" rx="2" fill="#7a4d2a" stroke="${INK}" stroke-width="1.6"/></g>`;
+      break;
+    case "gitano":
+      // Cesta de mimbre con asa
+      s += `<path d="M14 30 q18 -30 36 0" fill="none" stroke="${INK}" stroke-width="5"/><path d="M14 30 q18 -30 36 0" fill="none" stroke="#c9944a" stroke-width="2.5"/>`;
+      s += inkShape([[8, 30], [56, 30], [50, 54], [14, 54]], "#c9944a", { seed: 5, amp: 0.8, ink: 2.6 });
+      for (let y = 34; y < 54; y += 5) s += inkStroke([[10 + (y - 30) * 0.25, y], [54 - (y - 30) * 0.25, y]], 1.2, "#7a5424", y, 0.5);
+      for (let x = 14; x < 52; x += 6) s += inkStroke([[x, 31], [x + (32 - x) * 0.12, 53]], 1, "#7a5424", x, 0.4);
+      s += inkShape(rectPts(6, 27, 52, 5), "#a87a3a", { seed: 6, amp: 0.4, ink: 2 });
+      break;
+    case "piromano":
+      // Mechero con una llamarada
+      s += inkShape(rectPts(22, 34, 20, 22), "#c4342a", { seed: 7, amp: 0.5, ink: 2.4 });
+      s += inkShape(rectPts(22, 28, 20, 7), "#c9ced3", { seed: 8, amp: 0.3, ink: 2 });
+      s += `<circle cx="38" cy="26" r="3.4" fill="#8f949a" stroke="${INK}" stroke-width="1.6"/>`;
+      s += `<path d="${smoothPath(wobble([[24, 27], [20, 16], [26, 8], [28, 14], [32, 2], [38, 12], [42, 8], [42, 20], [38, 27]], 1, 9))}" fill="#ffb02e" stroke="${INK}" stroke-width="2.4"/>`;
+      s += `<path d="${smoothPath(wobble([[28, 26], [27, 18], [31, 12], [34, 18], [36, 26]], 0.6, 10))}" fill="#fff0a0"/>`;
+      s += `<path d="M26 40 h12" stroke="#fff" stroke-opacity="0.5" stroke-width="2"/>`;
+      break;
+    case "vilchez":
+      // Mano que saluda (y marca a quien saluda)
+      s += `<path d="${smoothPath(wobble([[20, 56], [16, 38], [14, 26], [18, 24], [22, 34], [22, 14], [27, 12], [29, 30], [30, 10], [35, 10], [36, 30], [38, 14], [43, 15], [42, 34], [46, 24], [51, 26], [46, 44], [40, 56]], 0.6, 11))}" fill="#f0c49a" stroke="${INK}" stroke-width="2.6"/>`;
+      s += `<path d="M6 18 q-4 6 0 12 M10 14 q-6 10 0 20 M56 18 q4 6 0 12" stroke="#5c97ff" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+      break;
+    case "conserje":
+      // Manojo de llaves y cubo
+      s += inkShape([[14, 30], [42, 30], [38, 56], [18, 56]], "#7a8a96", { seed: 12, amp: 0.6, ink: 2.4 });
+      s += `<path d="M14 30 q14 -18 28 0" fill="none" stroke="${INK}" stroke-width="2.4"/>`;
+      s += `<path d="M18 38 h20" stroke="#cfd6db" stroke-width="2"/>`;
+      s += `<circle cx="46" cy="22" r="8" fill="none" stroke="#c9a23a" stroke-width="3.4"/><circle cx="46" cy="22" r="8" fill="none" stroke="${INK}" stroke-width="1.2"/>`;
+      s += `<path d="M52 28 l8 10 l-3 2 l-2 -2 l-2 2 l-2 -2" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`;
+      break;
+    case "ludopata":
+      // Moneda con un 7
+      s += `<circle cx="32" cy="32" r="22" fill="#e1b64a" stroke="${INK}" stroke-width="2.8"/><circle cx="32" cy="32" r="16" fill="#f2cf6a" stroke="#a87a1a" stroke-width="1.6"/>`;
+      s += `<path d="M24 22 h16 v4 q-6 6 -8 18 h-6 q2 -12 8 -18 h-10Z" fill="#d8342a" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>`;
+      s += `<path d="M16 22 q6 -10 16 -10" stroke="#fff" stroke-opacity="0.55" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+      break;
+    default:
+      // Roeño: la boina del pueblo
+      s += `<path d="${smoothPath(wobble([[6, 40], [8, 28], [18, 18], [32, 15], [46, 18], [56, 28], [56, 38], [46, 44], [32, 46], [16, 45]], 0.8, 13))}" fill="#262836" stroke="${INK}" stroke-width="2.6"/>`;
+      s += inkShape([[9, 40], [16, 44], [32, 46], [46, 44], [54, 39], [52, 44], [44, 50], [32, 52], [17, 50], [10, 45]], "#5b3a26", { seed: 14, amp: 0.4, ink: 2 });
+      s += inkStroke([[32, 15], [34, 8], [37, 7]], 3, INK, 15, 0.3);
+      s += `<path d="M16 28 q8 -8 18 -9" stroke="#fff" stroke-opacity="0.35" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+  }
+  return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+}

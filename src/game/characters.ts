@@ -57,6 +57,10 @@ const TURN_MS = 150;
 const CELEBRATE_MS = 700;
 const REDUCED_MOTION = typeof matchMedia == "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** Polvillos de pisadas vivos a la vez (para no cargar el móvil). */
+let liveDust = 0;
+const MAX_DUST = 10;
+
 export class Character extends Phaser.GameObjects.Container {
   private sprite!: Phaser.GameObjects.Sprite;
   private shadow!: Phaser.GameObjects.Ellipse;
@@ -197,7 +201,10 @@ export class Character extends Phaser.GameObjects.Container {
     if (this.lying) return;
     const dt = Math.max(0, Math.min(dtMs, 250));
     const anim = this.anim;
-    for (const pie of anim.update(vx, vy, dt)) this.emit("paso", { pie } satisfies PasoEvent);
+    for (const pie of anim.update(vx, vy, dt)) {
+      this.emit("paso", { pie } satisfies PasoEvent);
+      this.footDust(pie, vx);
+    }
     if (anim.giros !== this.giros) {
       this.giros = anim.giros;
       this.giroMs = TURN_MS;
@@ -288,6 +295,33 @@ export class Character extends Phaser.GameObjects.Container {
       if (frame >= ciclo[vista] && frame < ciclo[vista] + cicloLen) return parado[vista];
     }
     return Math.min(frame, 3);
+  }
+
+  /** Polvillo bajo el pie al pisar (solo si se ve en pantalla y hay pocos a la vez). */
+  private footDust(pie: Pie, vx: number): void {
+    if (REDUCED_MOTION || !this.visible || this.alpha < 0.9 || liveDust >= MAX_DUST) return;
+    const scene = this.scene;
+    if (!scene.textures.exists("fx-polvo") || !scene.cameras.main.worldView.contains(this.x, this.y)) return;
+    liveDust++;
+    const side = pie === "izq" ? -1 : 1;
+    const puff = scene.add
+      .image(this.x + side * 7, this.y + FEET_Y + 1, "fx-polvo")
+      .setScale(0.1)
+      .setAlpha(0.55)
+      .setDepth(this.depth - 1e-6);
+    scene.tweens.add({
+      targets: puff,
+      scale: 0.22,
+      alpha: 0,
+      x: puff.x - Math.sign(vx) * 8,
+      y: puff.y - 4,
+      duration: 420,
+      ease: "Quad.Out",
+      onComplete: () => {
+        liveDust--;
+        puff.destroy();
+      },
+    });
   }
 
   /** Destellos que suben sobre la cabeza al celebrar. */

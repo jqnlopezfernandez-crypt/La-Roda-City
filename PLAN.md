@@ -69,6 +69,20 @@ Página jugable (sin servidor, modo en solitario): artifact "La Roda City" — s
   fundido al entrar, destello al empezar la reunión, pantallas con entrada suave.
   Todo respeta "reducir movimiento" del sistema. Comprobado con 4 navegadores (`tests/e2e/partida.mjs`).
 
+- ✅ (22-10-2026) Animaciones con personalidad, todo comprobado con capturas y con `tests/e2e/partida.mjs`
+  (4 navegadores, partida completa sin errores):
+  reunión en la plaza del Ayuntamiento con los vecinos de pie, bocadillos y voces inventadas (galimatías
+  con formantes) más murmullo; votar tocando al vecino, papeleta al votar; expulsado que se aleja por la
+  carretera de salida con el cartel tachado y sello ERA / NO ERA IMPOSTOR (rodamundos si no se va nadie);
+  eliminación con "¡ZAS!", polvo y alma con boina; viñeta "¡Te han dado matarile!" para la víctima;
+  revelación del papel con foco y emblema; final con los ganadores saltando; polvillo al pisar.
+- ✅ Tragaperras del Ludópata rehecha ("La Rodeña", símbolos propios, palanca, rodillos con frenada,
+  el "casi", lluvia de monedas, sonidos propios).
+- ✅ Minijuegos que caben enteros en el móvil: dos columnas en horizontal y ajuste automático del ancho.
+  `tests/e2e/minijuegos.mjs` los completa en 390×760 y en 740×360 (18/18).
+- ✅ Cabeza del Sagrado a tamaño real y estatua sin cabeza durante el sabotaje; quitadas Casa Empresa y
+  Casa Pelosblancos; Maskom casi en la esquina del Sagrado (posición aproximada, por indicación de Joaquín).
+
 ## Fase 7 — Publicación 🟡 preparada · ⛔ despliegue (necesita cuentas)
 - ✅ `.github/workflows/pages.yml` (cliente → GitHub Pages con `VITE_SERVER_URL`), `Dockerfile`,
   `render.yaml`, `/salud`, `package-lock.json` del PC (incluye dependencias de Linux).
