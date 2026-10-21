@@ -1,7 +1,7 @@
 import { ART, HOUSE_KEYS, ROOF_KEYS } from "../art/index";
 import { LANDMARK_ART } from "../art/landmarks";
 import { DrawRecorder, type PatternMatrix, type Point } from "./recorder";
-import { STREET_HALF_WIDTH, WORLD_SIZE, cityBlocks, nearestOnNetwork, streetEdges, traceToWorld, worldAreas, worldObstacles } from "../../shared/map/townMap";
+import { STREET_HALF_WIDTH, WORLD_SIZE, cityBlocks, isWalkable, nearestOnNetwork, streetEdges, traceToWorld, worldAreas, worldObstacles } from "../../shared/map/townMap";
 import { RIVER_WIDTH, bridges, riverLines } from "../../shared/map/river";
 import { BRIDGE, LOT_DEPTH, RIDGE_HEIGHT, WALL_HEIGHT, bridgeFrame, placeHouses } from "../../shared/map/houses";
 import { pointsOfInterest } from "../../shared/data/pointsOfInterest";
@@ -40,6 +40,68 @@ interface DecorItem {
   y: number;
   flip?: boolean;
   size?: number;
+}
+
+/** Un edificio por dibujar (casa, edificio singular o torre). */
+interface BuildingJob {
+  /** Borde sur de la huella: orden de pintado y profundidad del sprite. */
+  y: number;
+  draw: () => void;
+  /** Huella y altura total para saber si puede tapar a un personaje. */
+  shape?: Point[];
+  lift?: number;
+  /** Siempre como sprite (edificios altos). */
+  always?: boolean;
+}
+
+/** Edificio separado del suelo para que tape a los personajes que pasan por detrás. */
+export interface Occluder {
+  rec: DrawRecorder;
+  baseY: number;
+  box: { x0: number; y0: number; x1: number; y1: number };
+}
+const occluders: Occluder[] = [];
+
+function unionBox(ops: { x0: number; y0: number; x1: number; y1: number }[]) {
+  return {
+    x0: Math.min(...ops.map((o) => o.x0)),
+    y0: Math.min(...ops.map((o) => o.y0)),
+    x1: Math.max(...ops.map((o) => o.x1)),
+    y1: Math.max(...ops.map((o) => o.y1)),
+  };
+}
+
+/**
+ * ¿Puede quedar un personaje detrás de este edificio? Sí, si hay algún punto transitable
+ * dentro de la imagen del edificio (huella + huella levantada) y al norte de su base.
+ */
+function canHidePlayer(shape: Point[], lift: number, baseY: number): boolean {
+  const pts = [...shape, ...shape.map((p) => ({ x: p.x, y: p.y - lift }))];
+  const hull = convexHull(pts);
+  const box = boundsOf(hull);
+  for (let y = box.y0 + 6; y < Math.min(box.y1, baseY - 10); y += 8) {
+    for (let x = box.x0 + 6; x < box.x1 - 6; x += 8) {
+      if (!pointInPolygon(x, y, hull) || distToPolyline(x, y, hull, true) < 8) continue;
+      if (isWalkable({ x, y }, 6)) return true;
+    }
+  }
+  return false;
+}
+
+function convexHull(points: Point[]): Point[] {
+  const p = points.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower: Point[] = [];
+  for (const q of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop();
+    lower.push(q);
+  }
+  const upper: Point[] = [];
+  for (const q of p.reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop();
+    upper.push(q);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
 }
 
 /** Decoración reunida al grabar el mapa (la consume placeDecor). */
@@ -287,12 +349,14 @@ function buildTownDrawing(): DrawRecorder {
   // Se pintan de atrás hacia delante (por el borde sur de la huella) para que se tapen bien.
   const houses = placeHouses(7);
   for (const house of houses) rec.softShadow(house.footprint, 14, 0.55, 9, 12);
-  const jobs: { y: number; draw: () => void }[] = [];
+  const jobs: BuildingJob[] = [];
   const facadeLamps: Point[] = [];
   let houseFacadeCount = 0;
   for (const house of houses) {
     jobs.push({
       y: Math.max(...house.footprint.map((p) => p.y)),
+      shape: house.footprint,
+      lift: WALL_HEIGHT + RIDGE_HEIGHT,
       draw: () => {
         const roofKey = ROOF_KEYS[Math.floor(house.seed * ROOF_KEYS.length) % ROOF_KEYS.length];
         prismWalls(rec, house.footprint, WALL_HEIGHT, (a, b) => {
@@ -327,7 +391,18 @@ function buildTownDrawing(): DrawRecorder {
   }
   landmarkJobs(rec, jobs);
   jobs.sort((p, q) => p.y - q.y);
-  for (const job of jobs) job.draw();
+  // Los edificios detrás de los cuales puede quedar un personaje no se hornean en el suelo:
+  // se guardan aparte y se colocan como sprites ordenados por profundidad (placeOccluders).
+  occluders.length = 0;
+  for (const job of jobs) {
+    const start = rec.ops.length;
+    job.draw();
+    if (job.always || (job.shape && canHidePlayer(job.shape, job.lift ?? 0, job.y))) {
+      const own = new DrawRecorder();
+      own.ops = rec.ops.splice(start);
+      if (own.ops.length) occluders.push({ rec: own, baseY: job.y, box: unionBox(own.ops) });
+    }
+  }
   for (const bridge of bridges) drawBridge(rec, bridge, isIronBridge(bridge));
   for (const lamp of facadeLamps) {
     rec.glow(lamp.x, lamp.y + 6, 70, 0xffcf73, 0.22);
@@ -647,7 +722,7 @@ function pyramidRoof(rec: DrawRecorder, base: Point[], lift: number, apex: numbe
  * Edificios singulares en 3/4, igual que las casas: sombra, muros visibles con sus fachadas
  * (lado largo o corto), tejado a dos aguas levantado y torres como prismas con su tejado.
  */
-function landmarkJobs(rec: DrawRecorder, jobs: { y: number; draw: () => void }[]): void {
+function landmarkJobs(rec: DrawRecorder, jobs: BuildingJob[]): void {
   for (const l of landmarks) {
     const H = LANDMARK_HEIGHT[l.kind];
     const [fl, fr, br, bl] = l.footprint;
@@ -657,6 +732,7 @@ function landmarkJobs(rec: DrawRecorder, jobs: { y: number; draw: () => void }[]
     const shortKey = `edificio-${l.kind}-corto`;
     jobs.push({
       y,
+      always: true,
       draw: () => {
         prismWalls(rec, l.footprint, H, (a, b) => {
           const isLong = (near(a, fl) && near(b, fr)) || (near(a, fr) && near(b, fl)) || (near(a, br) && near(b, bl)) || (near(a, bl) && near(b, br));
@@ -698,6 +774,7 @@ function landmarkJobs(rec: DrawRecorder, jobs: { y: number; draw: () => void }[]
       ];
       jobs.push({
         y: y + 0.01,
+        always: true,
         draw: () => {
           // Solo la parte que asoma por encima del tejado: el muro arranca a la altura del alero
           const raisedBase = base.map((p) => ({ x: p.x, y: p.y - H }));
@@ -1238,6 +1315,33 @@ export class TownRenderer {
   destroy(): void {
     for (const key of [...this.chunks.keys()]) this.drop(key);
   }
+}
+
+/**
+ * Coloca como sprites los edificios que pueden tapar a un personaje (ver canHidePlayer).
+ * Cada uno se pinta una vez en su propio lienzo y se ordena por la base, como los árboles.
+ */
+export function placeOccluders(scene: Phaser.Scene): { image: Phaser.GameObjects.Image; baseY: number }[] {
+  const res = Math.min(1.5, Math.max(1, window.devicePixelRatio || 1));
+  return occluders.map((o, i) => {
+    const pad = 4;
+    const x0 = Math.floor(o.box.x0 - pad);
+    const y0 = Math.floor(o.box.y0 - pad);
+    const w = Math.ceil(o.box.x1 + pad) - x0;
+    const h = Math.ceil(o.box.y1 + pad) - y0;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(w * res);
+    canvas.height = Math.ceil(h * res);
+    const ctx = canvas.getContext("2d")!;
+    ctx.setTransform(res, 0, 0, res, -x0 * res, -y0 * res);
+    o.rec.job(ctx, { x0, y0, x1: x0 + w, y1: y0 + h }).step(Infinity);
+    const key = `edificio-sprite-${i}`;
+    if (scene.textures.exists(key)) scene.textures.remove(key);
+    scene.textures.addCanvas(key, canvas);
+    const image = scene.add.image(x0, y0, key).setOrigin(0).setScale(1 / res).setDepth(20 + o.baseY / 1e5);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.textures.exists(key) && scene.textures.remove(key));
+    return { image, baseY: o.baseY };
+  });
 }
 
 /** Coloca la decoración reunida al grabar el mapa (y las estatuas). Devuelve los sprites. */

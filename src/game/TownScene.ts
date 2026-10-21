@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { PLAYER_RADIUS, PLAYER_SPEED } from "../../shared/net/protocol";
 import { WORLD_SIZE, defaultSpawn, isWalkable, moveAlongStreets, nearestWalkable, traceToWorld, type Vec2 } from "../../shared/map/townMap";
 import { addProp, registerArt } from "../art/runtime";
-import { TownRenderer, placeDecor } from "./mapRenderer";
+import { TownRenderer, placeDecor, placeOccluders } from "./mapRenderer";
 import { createAmbience } from "./ambience";
 import { Character, PALETTE } from "./characters";
 import { ambient, music, sfx } from "./sounds";
@@ -90,6 +90,10 @@ export class TownScene extends Phaser.Scene {
   /** Pasos hechos por misión en la última lectura (para celebrar los nuevos). */
   private lastProgress: Map<string, number> | null = null;
   private riverTimer = 0;
+  /** Edificios que pueden tapar al personaje (se vuelven translúcidos si lo tapan). */
+  private occluders: { image: Phaser.GameObjects.Image; baseY: number }[] = [];
+  /** Tiempo de preparar el mapa al entrar (ms, para pruebas de rendimiento). */
+  private buildMs = 0;
   private ambience!: Ambience;
   /** Anillo que señala el lugar más cercano. */
   private ring!: Phaser.GameObjects.Ellipse;
@@ -113,8 +117,11 @@ export class TownScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
     this.cameras.main.setBackgroundColor("#55603c");
     registerArt(this);
+    const t0 = performance.now();
     this.town = new TownRenderer(this);
     const decor = placeDecor(this);
+    this.occluders = placeOccluders(this);
+    this.buildMs = Math.round(performance.now() - t0);
     this.ambience = createAmbience(this, { decor });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.ambience.destroy());
     this.drawPoints();
@@ -177,6 +184,8 @@ export class TownScene extends Phaser.Scene {
       },
       panelOpen: () => (this.scene.get("UIScene") as unknown as { isPanelOpen(): boolean }).isPanelOpen(),
       chunks: () => this.town.chunkCount,
+      occluders: () => this.occluders.length,
+      buildMs: () => this.buildMs,
       // (bakeTimes se declara en mapRenderer.ts, todavía sin tipar)
       bakeTimes: () => [...(this.town as unknown as { bakeTimes: number[] }).bakeTimes],
       walkable: () => isWalkable({ x: this.player.x, y: this.player.y }, PLAYER_RADIUS),
@@ -264,6 +273,7 @@ export class TownScene extends Phaser.Scene {
     this.updateActions();
     this.town.update(this.cameras.main);
     this.ambience.update(time, delta, this.cameras.main);
+    this.fadeOccluders();
 
     // sonido del río: más fuerte cuanto más cerca (se mide cada 0,3 s)
     this.riverTimer -= delta;
@@ -442,6 +452,23 @@ export class TownScene extends Phaser.Scene {
       this.cameras.main.shake(180, 0.004);
     }
     this.bodies.set(b.id, { view, data: b });
+  }
+
+  /** Si un edificio tapa al propio personaje (está detrás de él), se vuelve translúcido. */
+  private fadeOccluders() {
+    const px = this.player.x;
+    const py = this.player.y;
+    for (const o of this.occluders) {
+      const img = o.image;
+      const left = img.x;
+      const top = img.y;
+      const right = left + img.displayWidth;
+      const bottom = top + img.displayHeight;
+      const hides = py < o.baseY && px > left + 6 && px < right - 6 && py - 50 > top && py - 50 < bottom;
+      const target = hides ? 0.45 : 1;
+      const diff = target - img.alpha;
+      if (diff !== 0) img.setAlpha(Math.abs(diff) < 0.03 ? target : img.alpha + diff * 0.25);
+    }
   }
 
   /** Calcula qué acciones están al alcance y avisa a la interfaz si cambian. */
