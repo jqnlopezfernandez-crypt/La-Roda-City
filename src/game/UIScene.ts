@@ -179,12 +179,21 @@ export class UIScene extends Phaser.Scene {
   /** Apila hacia arriba, encima del botón de acción, los botones visibles. */
   private layoutActions() {
     const { width, height } = this.scale;
+    // Pantallas bajas (móvil en horizontal): en fila, a la izquierda del botón de la mano,
+    // para no quedar debajo del minimapa. Pantallas altas: en columna encima.
+    const row = height < 600;
+    let x = width - 46 - 30 - 110;
     let y = height - 46 - 46 - 168;
     for (const key of ["eliminar", "llevar", "reportar", "emergencia"] as const) {
       const btn = this.actionButtons[key].c;
       if (!btn.visible) continue;
-      btn.setPosition(width - 46 - 30, y);
-      y -= 100;
+      if (row) {
+        btn.setPosition(x, height - 46 - 46 + 4);
+        x -= 92;
+      } else {
+        btn.setPosition(width - 46 - 30, y);
+        y -= 100;
+      }
     }
   }
 

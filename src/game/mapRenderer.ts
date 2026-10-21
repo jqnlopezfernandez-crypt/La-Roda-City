@@ -6,6 +6,7 @@ import { BRIDGE, LOT_DEPTH, WALL_HEIGHT, bridgeFrame, placeHouses } from "../../
 import { pointsOfInterest } from "../../shared/data/pointsOfInterest";
 import { AREAS, courtPolygon } from "../../shared/map/places";
 import { RAIL_BED_WIDTH, levelCrossings, railLines } from "../../shared/map/railway";
+import { landmarks, shopSigns } from "../../shared/map/landmarks";
 import Phaser from "phaser";
 import { addProp } from "../art/runtime";
 
@@ -278,6 +279,14 @@ function buildTownDrawing(): DrawRecorder {
 
   const inArea = (x: number, y: number) =>
     worldAreas.some((area) => (area.kind === "circulo" ? Math.hypot(x - area.c.x, y - area.c.y) < area.r + 8 : pointInPolygon(x, y, area.pts)));
+
+  // Edificios singulares: sombra en el suelo (el edificio es un sprite que tapa al pasar detrás)
+  for (const l of landmarks) {
+    rec.softShadow(l.footprint, 16, 0.45, 8, 10);
+    const bottom = Math.max(...l.footprint.map((p) => p.y));
+    decorItems.push({ key: `edificio-${l.kind}`, x: l.center.x, y: bottom - 4 });
+  }
+  for (const sgn of shopSigns) decorItems.push({ key: `letrero-${sgn.kind}`, x: sgn.x, y: sgn.y });
 
   // Casas: sombras, tejados (textura orientada según el alero) y cumbreras
   const houses = placeHouses(7);

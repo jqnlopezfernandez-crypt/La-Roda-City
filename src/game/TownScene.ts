@@ -80,6 +80,8 @@ export class TownScene extends Phaser.Scene {
   private dom: Overlays | null = null;
   private roleShown = false;
   private lastActions = "";
+  /** Aro rojo bajo el vecino al que el impostor puede eliminar. */
+  private killRing: Phaser.GameObjects.Graphics | null = null;
   private actions: Actions = { kill: null, killWaitS: 0, isImpostor: false, carry: null, report: null, emergency: false, task: null };
   private myTasks: TaskView[] = [];
   private lastTasksKey = "";
@@ -472,6 +474,18 @@ export class TownScene extends Phaser.Scene {
       a.emergency = (!!hall && near(hall.access, RULES.emergencyRange) && me.emergenciesLeft > 0) || (me.role === "vilchez" && me.specialLeft);
     }
     this.actions = a;
+    // Aro bajo la víctima posible (solo lo ve el impostor)
+    const target = a.kill ? this.remotes.get(a.kill) : null;
+    if (target) {
+      if (!this.killRing) this.killRing = this.add.graphics().setDepth(5);
+      const ready = a.killWaitS === 0;
+      this.killRing
+        .clear()
+        .lineStyle(4, 0xe0412f, ready ? 0.95 : 0.4)
+        .strokeEllipse(0, 0, 54, 22)
+        .setPosition(target.view.x, target.view.y + 2)
+        .setVisible(true);
+    } else this.killRing?.setVisible(false);
     const key = JSON.stringify(a);
     if (key !== this.lastActions) {
       this.lastActions = key;

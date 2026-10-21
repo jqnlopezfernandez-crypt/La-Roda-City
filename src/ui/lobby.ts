@@ -29,6 +29,12 @@ const store = {
 
 /** Página publicada sin servidor de juego (VITE_SIN_SERVIDOR=1): solo modo en solitario. */
 // También en una compilación de producción sin VITE_SERVER_URL (p. ej. GitHub Pages antes de tener servidor)
+/** iPhone en Safari (no admite pantalla completa en páginas) y sin abrir desde la pantalla de inicio. */
+const IOS_TIP =
+  import.meta.env.VITE_SIN_SERVIDOR !== "1" &&
+  /iPhone|iPod/.test(navigator.userAgent) &&
+  !(navigator as Navigator & { standalone?: boolean }).standalone &&
+  !matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches;
 const OFFLINE =
   import.meta.env.VITE_SIN_SERVIDOR === "1" || (import.meta.env.PROD && !import.meta.env.VITE_SERVER_URL);
 
@@ -72,6 +78,7 @@ export function showLobby(root: HTMLElement): Promise<LobbyResult> {
         </div>
         <button id="lobby-solo" class="btn btn-ghost">Explorar y practicar solo</button>`}
         <p id="lobby-status" class="lobby-status" aria-live="polite"></p>
+        ${IOS_TIP ? `<p class="lobby-note">En iPhone, para jugar a pantalla completa: botón Compartir → «Añadir a pantalla de inicio» y abre el juego desde ese icono.</p>` : ""}
         </div>
       </div>
     </div>`;

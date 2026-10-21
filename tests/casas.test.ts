@@ -3,6 +3,7 @@ import { placeHouses, BRIDGE, type House } from "../shared/map/houses";
 import { RIVER_WIDTH, bridges } from "../shared/map/river";
 import { AREAS, courtPolygon } from "../shared/map/places";
 import { RAIL_BED_WIDTH, levelCrossings, railLines } from "../shared/map/railway";
+import { landmarks, shopSigns } from "../shared/map/landmarks";
 import { defaultSpawn, isWalkable, nearestOnNetwork, traceToWorld, worldAreas, type Vec2 } from "../shared/map/townMap";
 import { findPath } from "../shared/map/pathfinding";
 
@@ -128,5 +129,19 @@ describe("sitios marcados en las capturas de satélite (piscina, parques, vías)
 
   it("la vía de la estación cruza la avenida con un paso a nivel", () => {
     expect(levelCrossings.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("edificios singulares y letreros", () => {
+  it("iglesia, ayuntamiento, estación y cuartel tienen sitio y ninguna casa los pisa", () => {
+    expect(landmarks.map((l) => l.kind).sort()).toEqual(["ayuntamiento", "cuartel", "estacion", "iglesia"]);
+    for (const l of landmarks) {
+      const bad = houses.filter((h) => overlap(h.footprint, l.footprint)).map((h) => h.id);
+      expect(bad, l.kind).toEqual([]);
+      for (const p of l.footprint) expect(isWalkable(p), l.kind).toBe(false);
+    }
+  });
+  it("cada comercio con misión tiene su letrero", () => {
+    expect(shopSigns.length).toBeGreaterThanOrEqual(15);
   });
 });

@@ -1,3 +1,4 @@
+import { svgDoc } from "./svg";
 // Manifiesto de todos los recursos gráficos: cada entrada se convierte en una textura.
 import {
   ICONS,
@@ -26,6 +27,7 @@ import {
   sidewalkTexture,
   slabTexture,
 } from "./ground";
+import { barracksBuilding, churchBuilding, shopSign, stationBuilding, townHallBuilding } from "./landmarks";
 import { CORNER_H, CORNER_ROOFS, CORNER_VARIANTS, CORNER_W, cornerFacade } from "./corners";
 import { FACADE_MODELS, FACADE_VARIANTS, HOUSE_H, HOUSE_W, houseFacade } from "./houses";
 import { PALETTE } from "../game/characters";
@@ -107,6 +109,13 @@ export const ART: ArtEntry[] = [
   { key: "buganvilla", w: 40, h: 56, scale: 1.5, ox: 0.5, oy: 0.95, svg: bougainvillea, grupo: "vegetacion" },
   { key: "pilon", w: 64, h: 44, scale: 1.5, ox: 0.5, oy: 0.88, svg: waterTrough, grupo: "mobiliario" },
   { key: "papelera", w: 16, h: 26, scale: 1.5, ox: 0.5, oy: 0.95, svg: litterBin, grupo: "mobiliario" },
+  { key: "edificio-iglesia", w: 190, h: 260, scale: 1.5, ox: 0.5, oy: 0.97, svg: () => svgDoc(190, 260, churchBuilding()), grupo: "mobiliario" },
+  { key: "edificio-ayuntamiento", w: 190, h: 200, scale: 1.5, ox: 0.5, oy: 0.96, svg: () => svgDoc(190, 200, townHallBuilding()), grupo: "mobiliario" },
+  { key: "edificio-estacion", w: 220, h: 150, scale: 1.5, ox: 0.5, oy: 0.95, svg: () => svgDoc(220, 150, stationBuilding()), grupo: "mobiliario" },
+  { key: "edificio-cuartel", w: 160, h: 150, scale: 1.5, ox: 0.5, oy: 0.95, svg: () => svgDoc(160, 150, barracksBuilding()), grupo: "mobiliario" },
+  ...(["farmacia", "super", "bar", "kebab", "peluqueria", "estanco", "gimnasio", "autoescuela", "tienda", "piscina"] as const).map(
+    (kind): ArtEntry => ({ key: `letrero-${kind}`, w: 44, h: 70, scale: 2, ox: 10 / 44, oy: 0.96, svg: () => svgDoc(44, 70, shopSign(kind)), grupo: "mobiliario" }),
+  ),
   { key: "estatua", w: 68, h: 128, scale: 2, ox: 0.5, oy: 0.95, svg: statue, grupo: "mobiliario" },
   { key: "marcador", w: 28, h: 38, scale: 2, ox: 0.5, oy: 0.92, svg: () => mapMarker(), grupo: "interfaz" },
   { key: "aviso", w: 30, h: 34, scale: 2, ox: 0.5, oy: 0.95, svg: alertSign, grupo: "interfaz" },

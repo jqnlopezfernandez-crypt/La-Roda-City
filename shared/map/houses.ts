@@ -13,6 +13,7 @@
 import { STREET_HALF_WIDTH, cityBlocks, segments, streetEdges, streetNodes, traceToWorld, worldAreas, type StreetEdge, type Vec2 } from "./townMap";
 import { RIVER_WIDTH, bridges, riverLines, type Bridge } from "./river";
 import { RAIL_BED_WIDTH, railLines } from "./railway";
+import { landmarks } from "./landmarks";
 
 /** Altura de la fachada dibujada (sobresale hacia arriba de la huella). */
 export const WALL_HEIGHT = 40;
@@ -347,6 +348,7 @@ function siteOk(poly: Vec2[], scene: Scene): boolean {
     scene.areaDist(poly) >= MIN_AREA_DIST &&
     scene.riverDist(poly) >= MIN_RIVER_DIST &&
     scene.railDist(poly) >= MIN_RAIL_DIST &&
+    landmarks.every((l) => polygonPolygonDist(poly, l.footprint) >= 10) &&
     scene.bridgeDist(poly) >= 8
   );
 }

@@ -36,9 +36,9 @@ export const RULES = {
   minPlayers: 4,
   /** Impostores según el número de jugadores. */
   impostorsFor: (n: number) => (n >= 7 ? 2 : 1),
-  killRange: 70,
-  reportRange: 90,
-  carryRange: 90,
+  killRange: 120,
+  reportRange: 120,
+  carryRange: 120,
   /** Distancia al botón del Ayuntamiento para convocar reunión de emergencia. */
   emergencyRange: 90,
   killCooldownMs: 25_000,
