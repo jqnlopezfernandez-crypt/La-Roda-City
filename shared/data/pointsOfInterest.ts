@@ -31,13 +31,11 @@ const leido = "punto rojo leído a mano sobre la imagen ampliada (±2 px): está
 
 export const pointsOfInterest: PointOfInterest[] = [
   { number: 1, name: "Parque Peces", trace: { x: 307, y: 618 }, status: "referencia", verified: false, metodo: "punto tras el número '1.'" },
-  { number: 2, name: "Maskom supermercados", trace: { x: 495.3, y: 770.3 }, status: "aproximada", verified: false, metodo: "indicación del usuario: enfrente del Ayuntamiento, pegado a la esquina con la calle que baja al sur (10 px al otro lado del eje de la calle)" },
+  { number: 2, name: "Maskom supermercados", trace: { x: 414.5, y: 834 }, status: "aproximada", verified: false, metodo: "indicación del usuario (22-10-2026): casi en la esquina del Sagrado Corazón; acera de enfrente de la plaza, a 10 px del cruce (404, 834)" },
   { number: 3, name: "Kebab Marihuan", trace: { x: 436.7, y: 695 }, status: "referencia", verified: false, metodo: leido },
   { number: 4, name: "Martín Cocina de Mercado", trace: { x: 443.3, y: 677.3 }, status: "referencia", verified: false, metodo: leido },
   { number: 5, name: "Taberna Monforte", trace: { x: 433.6, y: 655.1 }, status: "referencia", verified: false, metodo: auto + "; coincide con la etiqueta 'Taberna Monforte' de Apple Maps" },
   { number: 6, name: "Autoescuela", trace: { x: 473.4, y: 609.5 }, status: "referencia", verified: false, metodo: auto },
-  { number: 7, name: "Casa Empresa", trace: { x: 505.7, y: 522.3 }, status: "referencia", verified: false, metodo: leido },
-  { number: 8, name: "Casa Pelosblancos", trace: { x: 517.7, y: 525.7 }, status: "referencia", verified: false, metodo: leido },
   { number: 9, name: "Leiva", trace: { x: 525, y: 727.3 }, status: "referencia", verified: false, metodo: leido },
   { number: 10, name: "Campo de fútbol Carmelita", trace: { x: 316.2, y: 421.6 }, status: "referencia", verified: false, metodo: auto + "; junto al campo verde de la captura" },
   { number: 11, name: "Ayuntamiento", trace: { x: 498, y: 751.8 }, status: "referencia", verified: false, metodo: auto },

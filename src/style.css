@@ -879,15 +879,55 @@ canvas {
 }
 
 .ov-hint { font-size:14px; opacity:.85; border-top:1px solid var(--line); padding-top:8px }
-.ov-slot .ov-card { text-align:center }
-.slot-reels { display:flex; justify-content:center; gap:10px; margin:10px 0 }
-.slot-reel {
-  width:62px; height:72px; display:grid; place-items:center; font-size:38px; font-weight:900;
-  background:#f3ead6; color:#b5332a; border-radius:12px; border:3px solid #2a1c14; box-shadow:inset 0 -6px 0 #d8ccb1
+.ov-slot .ov-card { text-align:center; padding:12px 14px 14px; max-height:96dvh; overflow:hidden }
+.ov-slot .ov-kicker { margin-bottom:4px }
+/* Tragaperras: el mueble es un SVG de 300×460 y los rodillos van encima en su hueco */
+.slot-machine {
+  position:relative; margin:0 auto;
+  width:min(74vw, 270px, calc(70dvh * 300 / 460));
+  aspect-ratio:300 / 460
 }
-.ov-slot.won .slot-reel { background:#ffe28a; animation:slot-win .5s ease-in-out 3 }
-@keyframes slot-win { 50% { transform:translateY(-6px) } }
-@media (prefers-reduced-motion:reduce) { .ov-slot.won .slot-reel { animation:none } }
+.slot-cabinet { position:absolute; inset:0; width:100%; height:100%; display:block; filter:drop-shadow(0 6px 10px rgba(0,0,0,.45)) }
+.slot-window {
+  position:absolute; left:14%; top:32.2%; width:72%; height:29.5%;
+  display:flex; gap:3%; padding:0 2.5%; box-sizing:border-box; overflow:hidden; border-radius:6px
+}
+.slot-reel {
+  flex:1; height:100%; overflow:hidden; position:relative;
+  background:linear-gradient(#bfb39a, #fff8ea 22%, #fffdf6 50%, #fff8ea 78%, #bfb39a);
+  border-left:2px solid #2a1c14; border-right:2px solid #2a1c14
+}
+.slot-reel::after { content:""; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 10px 10px -6px rgba(0,0,0,.55), inset 0 -10px 10px -6px rgba(0,0,0,.55) }
+.slot-strip { will-change:transform }
+.slot-strip img { display:block; width:100%; height:calc(var(--sym-h, 30px)); object-fit:contain; box-sizing:border-box; padding:3% 2% }
+.slot-line { position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:rgba(232,53,43,.75); box-shadow:0 0 6px #e8352b; pointer-events:none }
+.slot-reel.stopped { animation:slot-thud .18s ease-out }
+@keyframes slot-thud { 40% { transform:translateY(3px) } }
+.slot-lever { position:absolute; right:-9%; top:24%; width:8%; height:33%; transform-origin:50% 95% }
+.slot-lever svg { width:100%; height:100%; display:block; transform-origin:50% 95% }
+.slot-lever.pull svg { animation:slot-pull .55s cubic-bezier(.3,.6,.4,1.4) }
+@keyframes slot-pull { 45% { transform:scaleY(-.55) } 100% { transform:none } }
+.slot-coin { position:absolute; width:10%; left:71%; top:66%; opacity:0; animation:slot-coin-in .45s ease-in forwards }
+@keyframes slot-coin-in { 0% { opacity:1; transform:translate(-60%,-180%) rotate(-30deg) scale(1.3) } 80% { opacity:1; transform:translate(0,0) rotateY(80deg) scale(.9) } 100% { opacity:0; transform:translate(0,4%) rotateY(90deg) scale(.6) } }
+.slot-tray { position:absolute; left:26%; right:26%; top:84%; height:8%; overflow:visible }
+.slot-payout { position:absolute; left:50%; top:0; width:22%; margin-left:-11%; opacity:0; animation:slot-pay .7s cubic-bezier(.3,.7,.4,1) forwards }
+@keyframes slot-pay { 0% { opacity:1; transform:translate(0,-60%) rotate(0) } 100% { opacity:1; transform:translate(var(--x),-10%) rotate(var(--r)) } }
+.slot-cabinet .bulb { animation:slot-bulb 1.2s steps(1) infinite }
+.slot-cabinet .bulb.b1 { animation-delay:-.4s }
+.slot-cabinet .bulb.b2 { animation-delay:-.8s }
+@keyframes slot-bulb { 0% { opacity:1 } 33% { opacity:.35 } }
+.ov-slot.spinning .slot-cabinet .bulb { animation-duration:.36s }
+.ov-slot.won .slot-cabinet .bulb { animation-duration:.18s }
+.ov-slot.won .slot-reel img { animation:slot-win .45s ease-in-out 5 }
+.ov-slot.won .slot-machine { animation:slot-shake .12s linear 8 }
+@keyframes slot-win { 50% { transform:scale(1.12); filter:drop-shadow(0 0 6px #ffde7a) } }
+@keyframes slot-shake { 25% { transform:translateX(-2px) rotate(-.4deg) } 75% { transform:translateX(2px) rotate(.4deg) } }
+.ov-slot.lost .slot-msg { opacity:.85 }
+.slot-msg { margin:8px 0 0; font-weight:800; min-height:2.6em }
+.ov-slot.done { cursor:pointer }
+@media (prefers-reduced-motion:reduce) {
+  .ov-slot .slot-cabinet .bulb, .ov-slot.won .slot-reel img, .ov-slot.won .slot-machine, .slot-lever.pull svg, .slot-reel.stopped { animation:none }
+}
 
 /* Sabotajes: escenario con piezas que se arrastran */
 .mg-stage {

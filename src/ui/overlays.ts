@@ -1,5 +1,8 @@
 import { ROLE_INFO, SABOTAGES, SKIP_VOTE, type SabotageKind } from "../../shared/game/rules";
 import { floodScene, headlessStatueScene, poolScene } from "../art/sabotages";
+import { SLOT_ART, SLOT_SYMBOLS, slotCabinetSvg, slotLeverSvg, type SlotSymbol } from "../art/slot";
+import { coinSvg } from "../art/minigames";
+import { sfx } from "../game/sounds";
 import { PALETTE } from "../game/characters";
 import type { GameOver, VoteResult } from "../net/session";
 import type { SlotResult } from "../../shared/net/protocol";
@@ -171,35 +174,103 @@ export class Overlays {
     return el;
   }
 
-  /** Tragaperras del Ludópata: rodillos girando y resultado. */
+  /** Tragaperras del Ludópata: moneda, palanca, rodillos que frenan uno a uno y premio. */
   showSlot(r: SlotResult) {
-    const symbols = ["🍒", "🍋", "🔔", "⭐", "🍇", "7"];
+    this.root.querySelector(".ov-slot")?.remove();
+    const img = (k: SlotSymbol) => `<img alt="" draggable="false" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(SLOT_ART[k]())}">`;
+    const pick = () => SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+    // Resultado: 7-7-7 con premio; si no, a veces el "casi" (7, 7 y el tercero se pasa)
+    let final: SlotSymbol[];
+    if (r.won) final = ["siete", "siete", "siete"];
+    else if (Math.random() < 0.45) final = ["siete", "siete", (["campana", "aceituna", "abuelo"] as const)[Math.floor(Math.random() * 3)]];
+    else {
+      final = [pick(), pick(), pick()];
+      if (final[0] === final[1] && final[1] === final[2]) final[2] = final[2] === "naranja" ? "cubata" : "naranja";
+    }
+    const STOP = [16, 22, 30]; // índice del símbolo que queda en la línea en cada rodillo
+    const strips = final.map((f, i) => {
+      const list: SlotSymbol[] = Array.from({ length: STOP[i] + 2 }, pick);
+      list[STOP[i]] = f;
+      // el "casi": el 7 pasa justo antes de parar
+      if (!r.won && i === 2 && final[0] === "siete" && final[1] === "siete") list[STOP[i] + 1] = "siete";
+      return list;
+    });
     const el = this.card(
       "ov-slot",
       `<p class="ov-kicker">Tragaperras del bar</p>
-       <div class="slot-reels">${[0, 1, 2].map(() => `<span class="slot-reel">🍒</span>`).join("")}</div>
-       <p class="slot-msg">Girando…</p>`,
+       <div class="slot-machine">
+         ${slotCabinetSvg()}
+         <div class="slot-window">${strips.map((l) => `<div class="slot-reel"><div class="slot-strip">${l.map(img).join("")}</div></div>`).join("")}<div class="slot-line"></div></div>
+         <div class="slot-lever">${slotLeverSvg().replace("<svg", '<svg class="lever"')}</div>
+         <div class="slot-coin">${coinSvg(100)}</div>
+         <div class="slot-tray"></div>
+       </div>
+       <p class="slot-msg">Echando la moneda…</p>`,
     );
-    const reels = [...el.querySelectorAll<HTMLSpanElement>(".slot-reel")];
     const msg = el.querySelector<HTMLParagraphElement>(".slot-msg")!;
-    const final = r.won ? ["7", "7", "7"] : [0, 1, 2].map((i) => symbols[(Math.floor(Math.random() * 5) + i * 2) % 5]);
-    if (!r.won && final[0] === final[1] && final[1] === final[2]) final[2] = "🍋";
-    let ticks = 0;
-    const spin = window.setInterval(() => {
-      ticks++;
+    const reels = [...el.querySelectorAll<HTMLDivElement>(".slot-reel")];
+    const led = el.querySelector<SVGTextElement>(".slot-led");
+    const lever = el.querySelector<HTMLDivElement>(".slot-lever")!;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    // Tres símbolos a la vista por rodillo; el del índice STOP-1 arriba al empezar
+    for (const reel of reels) reel.style.setProperty("--sym-h", `${reel.clientHeight / 3}px`);
+    const timers: number[] = [];
+    const later = (ms: number, f: () => void) => timers.push(window.setTimeout(f, reduce ? Math.min(ms, 200) : ms));
+    const close = () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      el.remove();
+    };
+    el.addEventListener("click", () => el.classList.contains("done") && close());
+    sfx.moneda();
+    later(450, () => {
+      if (led) led.textContent = "0019";
+      lever.classList.add("pull");
+      sfx.palanca();
+      msg.textContent = "¡Que salga, que salga!";
+    });
+    later(750, () => {
+      el.classList.add("spinning");
+      const stopRolls = sfx.rodillos();
       reels.forEach((reel, i) => {
-        if (ticks > 12 + i * 6) reel.textContent = final[i];
-        else reel.textContent = symbols[(ticks + i * 3) % symbols.length];
+        const strip = reel.querySelector<HTMLDivElement>(".slot-strip")!;
+        const h = reel.clientHeight / 3;
+        const target = -(STOP[i] - 1) * h;
+        const dur = 1100 + i * 520 + (i === 2 && final[0] === final[1] ? 650 : 0);
+        strip.animate(
+          [{ transform: "translateY(0)", filter: "blur(0)" }, { transform: `translateY(${target * 0.25}px)`, filter: "blur(2.5px)", offset: 0.2 }, { transform: `translateY(${target * 0.9}px)`, filter: "blur(1.5px)", offset: 0.8 }, { transform: `translateY(${target - h * 0.12}px)`, filter: "blur(0)", offset: 0.93 }, { transform: `translateY(${target}px)`, filter: "blur(0)" }],
+          { duration: reduce ? 10 : dur, easing: "cubic-bezier(.25,.1,.25,1)", fill: "forwards" },
+        );
+        later(dur, () => {
+          sfx.rodilloPara(i);
+          reel.classList.add("stopped");
+          if (i === 1 && final[0] === final[1]) msg.textContent = final[0] === "siete" ? "¡Dos sietes! Venga, venga…" : "Uy, uy…";
+          if (i === 2) {
+            stopRolls();
+            el.classList.remove("spinning");
+            el.classList.add("done", r.won ? "won" : "lost");
+            if (r.won) {
+              sfx.premio();
+              msg.innerHTML = `¡PREMIO! <b>${escapeHtml(r.name ?? "")}</b> es de los buenos.`;
+              const tray = el.querySelector<HTMLDivElement>(".slot-tray")!;
+              for (let c = 0; c < 14; c++) {
+                const coin = document.createElement("div");
+                coin.className = "slot-payout";
+                coin.style.setProperty("--x", `${(Math.random() - 0.5) * 90}px`);
+                coin.style.setProperty("--r", `${Math.round((Math.random() - 0.5) * 720)}deg`);
+                coin.style.animationDelay = `${c * 90}ms`;
+                coin.innerHTML = coinSvg([100, 200, 50][c % 3]);
+                tray.appendChild(coin);
+              }
+              if (led) led.textContent = "0500";
+            } else {
+              sfx.sinPremio();
+              msg.textContent = final[0] === "siete" && final[1] === "siete" ? "¡Por un pelo! Sin premio esta ronda." : "Sin premio esta vez. Prueba en la siguiente ronda.";
+            }
+            later(r.won ? 5200 : 3600, close);
+          }
+        });
       });
-      if (ticks > 26) {
-        window.clearInterval(spin);
-        msg.innerHTML = r.won
-          ? `¡Premio! <b>${escapeHtml(r.name ?? "")}</b> es de los buenos.`
-          : "Sin premio esta vez. Prueba en la siguiente ronda.";
-        el.classList.add(r.won ? "won" : "lost");
-        window.setTimeout(() => el.remove(), 3200);
-      }
-    }, 70);
+    });
   }
 
   /** Menú del impostor: elegir uno de los tres sabotajes críticos (con su ilustración). */

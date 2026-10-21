@@ -233,6 +233,20 @@ function noiseSweep(
   source.stop(when + duration + 0.05);
 }
 
+/** Pitido de máquina (onda cuadrada/triangular con caída corta). */
+function blip(ctx: BaseAudioContext, dest: AudioNode, when: number, freq: number, duration: number, gain: number, type: OscillatorType = "square"): void {
+  const osc = ctx.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, when);
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(0, when);
+  amp.gain.linearRampToValueAtTime(gain, when + 3e-3);
+  amp.gain.setTargetAtTime(0, when + duration * 0.4, duration * 0.3);
+  osc.connect(amp).connect(dest);
+  osc.start(when);
+  osc.stop(when + duration * 2 + 0.05);
+}
+
 // Pisadas: se limitan a una cada 90 ms y alternan izquierda/derecha
 let lastStepAt = 0;
 let stepSide = 1;
@@ -303,6 +317,53 @@ export const sfx = {
     playEffect(0.5, (ctx, dest, when) => {
       for (let i = 0; i < 8; i++) bell(ctx, dest, when + i * 0.18, i % 2 ? 523 : 659, 0.42, 0.9, i % 2 ? 0.25 : -0.25);
       cajonHit(ctx, dest, when, 0.6, true);
+    }),
+  /** Tragaperras: la moneda cae por la ranura y rebota dentro. */
+  moneda: () =>
+    playEffect(0.15, (ctx, dest, when) => {
+      [0, 0.09, 0.15, 0.19].forEach((t, i) => noiseHit(ctx, dest, when + t, { f: 5200 - i * 300, q: 9, vel: 0.22 - i * 0.04, dec: 0.05, type: "bandpass" }));
+      blip(ctx, dest, when + 0.25, 1568, 0.08, 0.05, "triangle");
+    }),
+  /** Tragaperras: palanca con trinquete. */
+  palanca: () =>
+    playEffect(0.1, (ctx, dest, when) => {
+      for (let i = 0; i < 6; i++) noiseHit(ctx, dest, when + i * 0.035, { f: 1800, q: 4, vel: 0.16, dec: 0.012 });
+      cajonHit(ctx, dest, when + 0.24, 0.5, true);
+    }),
+  /** Tragaperras: traqueteo de los rodillos girando. Devuelve la función para pararlo. */
+  rodillos(): () => void {
+    let n = 0;
+    const id = window.setInterval(() => {
+      n++;
+      playEffect(0, (ctx, dest, when) => {
+        noiseHit(ctx, dest, when, { f: 2600 + (n % 3) * 300, q: 3, vel: 0.07, dec: 0.01 });
+        if (n % 4 === 0) blip(ctx, dest, when, [523, 659, 784, 659][(n / 4) % 4], 0.05, 0.025);
+      });
+    }, 55);
+    return () => window.clearInterval(id);
+  },
+  /** Tragaperras: un rodillo frena de golpe (cada uno un poco más agudo). */
+  rodilloPara: (i: number) =>
+    playEffect(0.12, (ctx, dest, when) => {
+      cajonHit(ctx, dest, when, 0.55, i === 0);
+      noiseHit(ctx, dest, when, { f: 900, q: 2, vel: 0.25, dec: 0.03, color: "rosa" });
+      blip(ctx, dest, when + 0.02, [392, 494, 587][i] ?? 587, 0.12, 0.06);
+    }),
+  /** Tragaperras: premio gordo (fanfarria de feria, campanillas y lluvia de monedas). */
+  premio: () =>
+    playEffect(0.4, (ctx, dest, when) => {
+      [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => blip(ctx, dest, when + i * 0.09, f, 0.14, 0.07));
+      strum(ctx, dest, [40, 47, 52, 56, 59, 64], when + 0.7, 0.4, 0.012);
+      for (let i = 0; i < 14; i++) noiseHit(ctx, dest, when + 0.8 + i * 0.09 + Math.random() * 0.04, { f: 4200 + Math.random() * 2400, q: 10, vel: 0.14, dec: 0.06 });
+      for (let i = 0; i < 4; i++) bell(ctx, dest, when + 0.75 + i * 0.22, 1046 + i * 130, 0.12, 1.2, i % 2 ? 0.3 : -0.3);
+      [1.0, 1.2, 1.4].forEach((t, i) => handClap(ctx, dest, when + t, 0.22, false, (i - 1) * 0.3));
+    }),
+  /** Tragaperras: sin premio (dos notas que bajan, "uooh"). */
+  sinPremio: () =>
+    playEffect(0.2, (ctx, dest, when) => {
+      blip(ctx, dest, when, 330, 0.2, 0.05, "triangle");
+      blip(ctx, dest, when + 0.22, 247, 0.4, 0.05, "triangle");
+      pluckNote(ctx, dest, 40, when + 0.22, 0.3, "apagada");
     }),
   /** Tic del reloj en los últimos segundos. */
   tic: () =>

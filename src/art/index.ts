@@ -128,6 +128,7 @@ export const ART: ArtEntry[] = [
     (kind): ArtEntry => ({ key: `letrero-${kind}`, w: 44, h: 70, scale: 2, ox: 10 / 44, oy: 0.96, svg: () => svgDoc(44, 70, shopSign(kind)), grupo: "mobiliario" }),
   ),
   { key: "estatua", w: 68, h: 128, scale: 2, ox: 0.5, oy: 0.95, svg: statue, grupo: "mobiliario" },
+  { key: "estatua-sin-cabeza", w: 68, h: 128, scale: 2, ox: 0.5, oy: 0.95, svg: () => statue(true), grupo: "mobiliario" },
   { key: "sab-cabeza", w: 64, h: 64, scale: 2, ox: 0.5, oy: 0.85, svg: () => svgDoc(64, 64, statueHeadArt()), grupo: "mobiliario" },
   { key: "sab-caca", w: 48, h: 44, scale: 2, ox: 0.5, oy: 0.8, svg: () => svgDoc(48, 44, poopArt(7)), grupo: "mobiliario" },
   { key: "sab-riada", w: 200, h: 110, scale: 1.5, ox: 0.5, oy: 0.5, svg: () => svgDoc(200, 110, floodPuddleArt()), grupo: "mobiliario" },

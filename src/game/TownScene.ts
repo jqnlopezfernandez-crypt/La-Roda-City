@@ -252,7 +252,7 @@ export class TownScene extends Phaser.Scene {
       sabotageHud: () => (this.lastHud ? JSON.parse(this.lastHud) : null),
       sabotageMenu: () => (this.dom ??= new Overlays()).showSabotageMenu(() => undefined),
       fogAlpha: () => (this.fog ? [this.fog.alpha, this.fog.visible, this.fog.depth, this.fog.x, this.fog.y] : null),
-      slot: (won: boolean) => this.dom?.showSlot({ won, id: "x", name: "Ana" }),
+      slot: (won: boolean) => (this.dom ??= new Overlays()).showSlot({ won, id: "x", name: "Ana" }),
       buildMs: () => this.buildMs,
       // (bakeTimes se declara en mapRenderer.ts, todavía sin tipar)
       bakeTimes: () => [...(this.town as unknown as { bakeTimes: number[] }).bakeTimes],
@@ -585,8 +585,12 @@ export class TownScene extends Phaser.Scene {
     if (!REDUCED_MOTION) this.tweens.add({ targets: mark, y: mark.y - 10, duration: 380, yoyo: true, repeat: -1 });
     this.sabotageProps.push(mark);
     if (kind === "cabeza") {
-      const head = addProp(this, "sab-cabeza", x + 34, y + 10, 1.1).setDepth(6).setAngle(-70);
+      // La cabeza caída al pie de la estatua, a su tamaño real (≈ la de un vecino)
+      const st = worldObstacles.find((o) => o.tipo === "estatua")?.c ?? { x: x + 30, y };
+      const head = addProp(this, "sab-cabeza", st.x + 22, st.y + 16, 0.42).setDepth(20 + (st.y + 16) / 1e5).setAngle(-70);
+      if (!REDUCED_MOTION) this.tweens.add({ targets: head, angle: -62, duration: 700, yoyo: true, repeat: -1, ease: "Sine.InOut" });
       this.sabotageProps.push(head);
+      this.setStatueHead(false);
     } else if (kind === "piscina") {
       // flotando en el vaso grande (no junto a la entrada)
       const water = worldObstacles.find((o) => o.area === "piscina" && o.tipo === "vaso")?.c ?? { x, y: y - 60 };
@@ -609,7 +613,15 @@ export class TownScene extends Phaser.Scene {
     if (this.phase === "partida") music.setPhase("partida");
   }
 
+  /** Quita o devuelve la cabeza a la estatua del Sagrado (cambia su textura). */
+  private setStatueHead(on: boolean) {
+    for (const o of this.children.list)
+      if (o instanceof Phaser.GameObjects.Image && (o.texture.key === "estatua" || o.texture.key === "estatua-sin-cabeza"))
+        o.setTexture(on ? "estatua" : "estatua-sin-cabeza");
+  }
+
   private clearSabotageProps() {
+    this.setStatueHead(true);
     for (const o of this.sabotageProps) o.destroy();
     this.sabotageProps = [];
   }

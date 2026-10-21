@@ -581,7 +581,7 @@ export function litterBin(): string {
 }
 
 /** "estatua": figura de piedra con aureola sobre pedestal. */
-export function statue(): string {
+export function statue(headless = false): string {
   const stone = "#e8e2d2";
   const stoneShadow = "#bdb4a0";
   let svg = `<ellipse cx="34" cy="122" rx="26" ry="6" fill="${INK}" fill-opacity="0.3"/>`;
@@ -665,9 +665,15 @@ export function statue(): string {
     stone,
     { seed: 7, amp: 0.6, ink: 2.2 },
   );
-  svg += `<circle cx="34" cy="20" r="7" fill="${stone}" stroke="${INK}" stroke-width="2.2"/>`;
-  svg += `<path d="M30 17 q4 -5 8 0" stroke="${stoneShadow}" stroke-width="2" fill="none"/>`;
-  svg += '<circle cx="34" cy="18" r="11" fill="none" stroke="#e2bd52" stroke-width="2.2"/>';
+  if (headless) {
+    // Muñón roto del cuello y la aureola apagada y torcida
+    svg += `<path d="M30 28 l1 -4 l2 3 l2 -4 l2 3 l2 -2 l0 4Z" fill="#d6cfbd" stroke="${INK}" stroke-width="1.8"/>`;
+    svg += '<ellipse cx="36" cy="17" rx="11" ry="9" transform="rotate(-18 36 17)" fill="none" stroke="#8a7a52" stroke-width="2" stroke-dasharray="4 3"/>';
+  } else {
+    svg += `<circle cx="34" cy="20" r="7" fill="${stone}" stroke="${INK}" stroke-width="2.2"/>`;
+    svg += `<path d="M30 17 q4 -5 8 0" stroke="${stoneShadow}" stroke-width="2" fill="none"/>`;
+    svg += '<circle cx="34" cy="18" r="11" fill="none" stroke="#e2bd52" stroke-width="2.2"/>';
+  }
   svg +=
     inkStroke(
       [
