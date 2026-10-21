@@ -80,7 +80,7 @@ li.hecho span { color: var(--muted) }
 
 <script>
 // Estado real del proyecto. Cada paso: [texto, estado, peso]. estado: hecho | curso | pendiente | tuyo
-const ACTUALIZADO = "2026-10-21T18:05:00+02:00";
+const ACTUALIZADO = "2026-10-21T18:01:00+02:00";
 const FASES = [
   ["Mapa fiel de La Roda", [
     ["Calles sacadas de tu trazado, sin inventar ninguna", "hecho", 3],
@@ -119,16 +119,18 @@ const FASES = [
   ["Publicar en internet", [
     ["Preparar la web para GitHub Pages (flujo automático) e instalable a pantalla completa", "hecho", 2],
     ["Preparar el servidor del juego (Docker + Render)", "hecho", 2],
-    ["Crear tu cuenta de GitHub y el repositorio", "tuyo", 2],
-    ["Crear tu cuenta de Render y conectar el repositorio", "tuyo", 2],
-    ["Subir el código y poner la dirección del servidor", "pendiente", 2],
+    ["Crear tu cuenta de GitHub y el repositorio", "hecho", 2],
+    ["Subir el código a GitHub (sin tus capturas) y comprobar que compila allí", "hecho", 2],
+    ["Web publicada en jqnlopezfernandez-crypt.github.io/La-Roda-City (modo práctica)", "hecho", 1],
+    ["Crear tu cuenta de Render", "hecho", 1],
+    ["Crear el servidor en Render desde el repositorio (Blueprint)", "tuyo", 1],
+    ["Poner la dirección del servidor en la web", "pendiente", 1],
     ["Probar una partida real entre tu móvil y otro dispositivo", "pendiente", 3],
   ]],
 ];
 
 const YOU = [
-  "Crear una cuenta gratuita en GitHub (github.com), conectarla en claude.ai → Ajustes → Conectores, crear un repositorio vacío llamado la-roda-city y decirme tu usuario. Yo subo el código.",
-  "Crear una cuenta gratuita en Render (render.com) entrando con esa cuenta de GitHub.",
+  "En Render: New → Blueprint → repositorio La-Roda-City → Apply. Después pasarme la dirección que termina en .onrender.com.",
   "Decirme qué calle del dibujo es la Calle Rosa y dónde está la Casa de la Juventud.",
 ];
 

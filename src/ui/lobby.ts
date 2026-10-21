@@ -123,10 +123,14 @@ export function showLobby(root: HTMLElement): Promise<LobbyResult> {
       root.innerHTML = "";
       resolve({ session, name, look });
     };
+    // El servidor gratuito se duerme sin uso y tarda ~1 minuto en despertar: avisarlo
+    let wakeTimer = 0;
     const busy = (on: boolean, msg = "") => {
       buttons.forEach((b) => (b.disabled = on));
       status.textContent = msg;
       status.classList.remove("error");
+      clearTimeout(wakeTimer);
+      if (on) wakeTimer = window.setTimeout(() => (status.textContent = `${msg} Despertando el servidor, puede tardar hasta un minuto…`), 5000);
     };
     const fail = (msg: string) => {
       busy(false);
