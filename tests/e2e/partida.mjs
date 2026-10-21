@@ -82,7 +82,7 @@ await witness.screenshot({ path: `${out}/partida-reunion.png` });
 const impId = await imp.evaluate(() => window.__laRoda.sessionId());
 for (const i of crewIdx) {
   if (i === victimIdx) continue;
-  await pages[i].click(`.ov-player[data-id="${impId}"]`);
+  await pages[i].click(`.mt-vecino[data-id="${impId}"]`);
 }
 await imp.click('.ov-meeting [data-skip]');
 ok('se muestra el resultado de la votación', await until(witness, () => !!document.querySelector('.ov-result')));

@@ -365,6 +365,21 @@ export const sfx = {
       blip(ctx, dest, when + 0.22, 247, 0.4, 0.05, "triangle");
       pluckNote(ctx, dest, 40, when + 0.22, 0.3, "apagada");
     }),
+  /** Golpe de sello de goma (resultado de la votación). */
+  sello: () =>
+    playEffect(0.2, (ctx, dest, when) => {
+      cajonHit(ctx, dest, when, 0.8, true);
+      noiseHit(ctx, dest, when, { f: 700, q: 0.8, vel: 0.35, dec: 0.05, color: "rosa" });
+      strum(ctx, dest, [40, 47, 52], when + 0.05, 0.25, 0.01, true, "apagada");
+    }),
+  /** Te han eliminado: golpe, caída grave y un lamento de guitarra. */
+  muerte: () =>
+    playEffect(0.6, (ctx, dest, when) => {
+      cajonHit(ctx, dest, when, 0.9, true);
+      noiseSweep(ctx, dest, when, 4000, 200, 0.5, 0.25);
+      [52, 51, 48, 47].forEach((note, i) => pluckNote(ctx, dest, note, when + 0.35 + i * 0.28, 0.32, "abierta", (i - 1.5) * 0.2));
+      strum(ctx, dest, [40, 46, 52, 55, 58], when + 1.5, 0.35, 0.05);
+    }),
   /** Tic del reloj en los últimos segundos. */
   tic: () =>
     playEffect(0, (ctx, dest, when) => {

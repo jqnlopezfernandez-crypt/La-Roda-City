@@ -253,6 +253,26 @@ export class TownScene extends Phaser.Scene {
       sabotageMenu: () => (this.dom ??= new Overlays()).showSabotageMenu(() => undefined),
       fogAlpha: () => (this.fog ? [this.fog.alpha, this.fog.visible, this.fog.depth, this.fog.x, this.fog.y] : null),
       slot: (won: boolean) => (this.dom ??= new Overlays()).showSlot({ won, id: "x", name: "Ana" }),
+      /** Solo pruebas: reunión de mentira con `n` vecinos para ver la plaza. */
+      meetingDemo: (n = 8, dead = 1) => {
+        const dom = (this.dom ??= new Overlays());
+        dom.showMeeting({ reason: "cadaver", caller: "Ana", victim: "Pepe", endsAt: () => Date.now() + 60_000, amAlive: true, onVote: () => undefined });
+        const names = ["Ana", "Pepe", "Lola", "Manolo", "Rocío", "Curro", "Mari", "Paco", "Juani", "Rafa", "Carmen", "Antonio"];
+        const list = Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: names[i % names.length], look: i, alive: i >= dead, hasVoted: false, isMe: i === 2 }));
+        dom.updateMeeting(list, true);
+        window.setTimeout(() => dom.updateMeeting(list.map((p, i) => ({ ...p, hasVoted: i % 2 === 1 && p.alive })), true), 1200);
+      },
+      voteDemo: (ejected = true, impostor = true) =>
+        (this.dom ??= new Overlays()).showVoteResult(
+          { counts: { p1: 3, p4: 1, saltar: 1 }, ejectedId: ejected ? "p1" : null, ejectedName: ejected ? "Pepe" : null, ejectedWasImpostor: ejected ? impostor : null },
+          { p1: "Pepe", p4: "Rocío" },
+          { p1: 3 },
+        ),
+      deathDemo: () => {
+        this.dom ??= new Overlays();
+        this.onMyDeath(1);
+      },
+      bodyDemo: () => this.addBody({ id: `demo${Date.now()}`, x: this.player.x + 60, y: this.player.y, look: 4 } as Body),
       buildMs: () => this.buildMs,
       // (bakeTimes se declara en mapRenderer.ts, todavía sin tipar)
       bakeTimes: () => [...(this.town as unknown as { bakeTimes: number[] }).bakeTimes],
@@ -394,6 +414,7 @@ export class TownScene extends Phaser.Scene {
           this.player.setDisplayName(p.alive ? p.name : `👻 ${p.name}`);
           this.player.setAlpha(p.alive ? 1 : 0.5);
           if (wasAlive !== p.alive) for (const id of this.remotes.keys()) this.applyVisibility(id);
+          if (wasAlive && !p.alive && this.phase === "partida") this.onMyDeath(p.look);
           this.maybeShowRole();
         } else {
           const r = this.remotes.get(p.id);
@@ -424,8 +445,10 @@ export class TownScene extends Phaser.Scene {
       onVoteResult: (v) => {
         const names: Record<string, string> = {};
         session.state.players.forEach((p, id) => (names[id] = p.name));
+        const looks: Record<string, number> = {};
+        session.state.players.forEach((p, id) => (names[id] = p.name, looks[id] = p.look));
         sfx.expulsion();
-        this.dom?.showVoteResult(v, names);
+        this.dom?.showVoteResult(v, names, looks);
       },
       onSabotage: (sab) => this.onSabotage(sab),
       onFixed: (f) => {
@@ -523,19 +546,49 @@ export class TownScene extends Phaser.Scene {
     this.dom?.updateMeeting(list, !!this.me?.alive);
   }
 
-  /** Cuerpo tendido en el suelo con una cruz encima. */
+  /** Cuerpo tendido en el suelo con una cruz encima, con el golpe dibujado si se ve. */
   private addBody(b: Body) {
     const look = PALETTE[b.look % PALETTE.length];
-    const figure = new Character(this, 0, 0, "", look).lieDown();
+    const fresh = this.phase === "partida" && this.time.now > 1500;
+    const figure = new Character(this, 0, 0, "", look).lieDown(!fresh);
     const mark = this.add.text(0, -30, "✝", { fontSize: "18px", color: "#ffffff", stroke: "#1b1b1b", strokeThickness: 4 }).setOrigin(0.5);
     const view = this.add.container(b.x, b.y, [figure, mark]).setDepth(15);
-    sfx.eliminar();
-    if (!REDUCED_MOTION) {
-      view.setScale(0.2).setAlpha(0);
-      this.tweens.add({ targets: view, scale: 1, alpha: 1, duration: 320, ease: "Back.Out" });
-      this.cameras.main.shake(180, 0.004);
-    }
     this.bodies.set(b.id, { view, data: b });
+    if (!fresh) return;
+    const near = Math.hypot(this.player.x - b.x, this.player.y - b.y) < 700;
+    if (near) sfx.eliminar();
+    if (REDUCED_MOTION) return;
+    mark.setAlpha(0);
+    this.tweens.add({ targets: mark, alpha: 1, y: -34, delay: 900, duration: 400, ease: "Back.Out" });
+    // ¡ZAS! de cómic que estalla y se va
+    const zas = addProp(this, "fx-zas", b.x + 26, b.y - 70, 0.9).setDepth(30).setScale(0).setAngle(-14);
+    this.tweens.add({ targets: zas, scale: (0.9 / 2) * 1.15, angle: -6, duration: 160, ease: "Back.Out" });
+    this.tweens.add({ targets: zas, scale: 0, alpha: 0, angle: 10, delay: 750, duration: 220, ease: "Quad.In", onComplete: () => zas.destroy() });
+    // Polvo al caer
+    for (let i = 0; i < 3; i++) {
+      const puff = addProp(this, "fx-polvo", b.x + (i - 1) * 22, b.y + 4, 0.6).setDepth(16).setAlpha(0.9).setScale(0.1);
+      this.tweens.add({ targets: puff, scale: 0.6 / 2, x: puff.x + (i - 1) * 18, y: puff.y - 6, alpha: 0, delay: 380 + i * 40, duration: 700, ease: "Quad.Out", onComplete: () => puff.destroy() });
+    }
+    // El alma (con su boina) sube haciendo eses y se desvanece
+    const soul = addProp(this, "fx-alma", b.x, b.y - 10, 0.9).setDepth(31).setAlpha(0);
+    this.tweens.add({ targets: soul, alpha: 0.9, delay: 600, duration: 300 });
+    this.tweens.add({ targets: soul, y: b.y - 120, delay: 600, duration: 1800, ease: "Sine.Out" });
+    this.tweens.add({ targets: soul, x: b.x + 14, delay: 600, duration: 450, yoyo: true, repeat: 1, ease: "Sine.InOut" });
+    this.tweens.add({ targets: soul, alpha: 0, delay: 1900, duration: 500, onComplete: () => soul.destroy() });
+    if (near) this.cameras.main.shake(200, 0.005);
+  }
+
+  /** Me acaban de eliminar: golpe de cámara en rojo y la viñeta del fantasma. */
+  private onMyDeath(look: number) {
+    sfx.muerte();
+    if (!REDUCED_MOTION) {
+      this.cameras.main.flash(380, 200, 30, 20);
+      this.cameras.main.shake(320, 0.008);
+      const cam = this.cameras.main;
+      const z = cam.zoom;
+      this.tweens.add({ targets: cam, zoom: z * 1.18, duration: 260, yoyo: true, hold: 500, ease: "Quad.Out" });
+    }
+    this.dom?.showDeath(look);
   }
 
   /** Empieza o termina el incendio: niebla para los vecinos y marcas en los puntos de agua. */

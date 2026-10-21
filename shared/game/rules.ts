@@ -98,7 +98,7 @@ export const RULES = {
   slotBars: [4, 5, 9, 19, 28, 29],
   slotChance: 0.15,
   /** Tras la reunión, pausa antes de volver a jugar (para leer el resultado). */
-  resultMs: 5_000,
+  resultMs: 7_000,
 };
 
 /** Generador pseudoaleatorio con semilla (mulberry32), reproducible en pruebas. */

@@ -3,6 +3,35 @@ import { floodScene, headlessStatueScene, poolScene } from "../art/sabotages";
 import { SLOT_ART, SLOT_SYMBOLS, slotCabinetSvg, slotLeverSvg, type SlotSymbol } from "../art/slot";
 import { coinSvg } from "../art/minigames";
 import { sfx } from "../game/sounds";
+import { ballotSvg, plazaMeetingScene, roadOutScene, soulArt, stampSvg, tumbleweedSvg, zasBurstArt } from "../art/scenes";
+import { ART } from "../art/index";
+import { roenoMeta } from "../game/animation";
+
+const REDUCED_MOTION_UI = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/** Fotogramas de la hoja del personaje que usa la interfaz. */
+const FRAME = {
+  total: roenoMeta.frames,
+  frente: roenoMeta.anim.parado.frente,
+  lado: roenoMeta.anim.parado.lado,
+  espalda: roenoMeta.anim.parado.espalda,
+  cicloEspalda: roenoMeta.anim.ciclo.espalda,
+};
+/** Estilo CSS para pintar un fotograma del personaje de un color con su hoja de sprites. */
+function abueloStyle(look: number, frame: number): string {
+  const n = PALETTE.length;
+  const art = ART.find((a: { key: string }) => a.key === `roeno-${((look % n) + n) % n}`) as { url?: string } | undefined;
+  return `background-image:url('${art?.url ?? ""}');background-size:${FRAME.total * 100}% 100%;background-position:${(frame / (FRAME.total - 1)) * 100}% 0`;
+}
+const svg = (w: number, h: number, body: string) => `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+const zasBurstSvg = () => svg(120, 90, zasBurstArt());
+const soulSvg = () => svg(40, 52, soulArt());
+/** Lo que se oye en la plaza mientras se discute (todos hablan a la vez). */
+const CHATTER = [
+  "¡Ha sido él!", "¿Yo? ¡Qué va!", "Ojú…", "Yo estaba en el estanco", "Lo vi por el Sagrado", "¡Que no, que no!",
+  "Miarma, yo no he sido", "Eso es mentira", "¿Y tú dónde estabas?", "Yo vi a alguien raro…", "Venga ya",
+  "¡Por mi madre!", "Estaba con mi misión", "Ese va muy callao…", "¡Illo!", "Aquí hay gato encerrao", "Yo me fío de ti",
+  "¿Quién ha sido?", "Estaba en el Cazadores", "Sospechoso…",
+];
 import { PALETTE } from "../game/characters";
 import type { GameOver, VoteResult } from "../net/session";
 import type { SlotResult } from "../../shared/net/protocol";
@@ -38,7 +67,6 @@ const roleInfo = (role: string): RoleInfo | undefined => (ROLE_INFO as Record<st
 
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const hexColor = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
 
 export class Overlays {
   private root: HTMLDivElement;
@@ -46,6 +74,9 @@ export class Overlays {
   private onVote: ((target: string) => void) | null = null;
   private myVote: string | null = null;
   private timerId = 0;
+  private chatterId = 0;
+  /** Vecinos dibujados en la plaza de la reunión (por id), para no rehacerlos en cada cambio. */
+  private crowd = new Map<string, { el: HTMLButtonElement; voted: boolean }>();
 
   constructor() {
     this.root = document.createElement("div");
@@ -55,6 +86,7 @@ export class Overlays {
 
   destroy() {
     window.clearInterval(this.timerId);
+    window.clearInterval(this.chatterId);
     this.root.remove();
   }
 
@@ -90,6 +122,7 @@ export class Overlays {
     this.closeMeeting();
     this.onVote = opts.onVote;
     this.myVote = null;
+    this.crowd.clear();
     const title =
       opts.reason === "cadaver"
         ? `¡${escapeHtml(opts.caller)} ha encontrado el cuerpo de ${escapeHtml(opts.victim)}!`
@@ -98,33 +131,89 @@ export class Overlays {
           : `${escapeHtml(opts.caller)} ha convocado una reunión de emergencia`;
     this.meetingEl = this.card(
       "ov-meeting",
-      `<h2>Reunión en el Ayuntamiento</h2>
-       <p class="ov-sub">${title}</p>
-       <p class="ov-timer" data-timer></p>
-       <div class="ov-players" data-list></div>
-       ${opts.amAlive ? '<button class="btn" data-skip>Saltar voto</button>' : '<p class="ov-sub">Estás fuera de la partida: no puedes votar.</p>'}`,
+      `<div class="mt-scene">${plazaMeetingScene()}<div class="mt-crowd" data-crowd></div>
+         ${opts.reason === "cadaver" ? `<div class="mt-flash">CUERPO ENCONTRADO</div>` : ""}</div>
+       <div class="mt-side">
+         <p class="ov-kicker">Reunión en la plaza</p>
+         <h2>${title}</h2>
+         <p class="ov-timer" data-timer></p>
+         <p class="ov-sub mt-help">${opts.amAlive ? "Toca a un vecino para votarle." : "Estás fuera de la partida: no puedes votar."}</p>
+         ${opts.amAlive ? '<button class="btn" data-skip>Saltar voto</button>' : ""}
+       </div>`,
     );
     this.meetingEl.querySelector("[data-skip]")?.addEventListener("click", () => this.castVote(SKIP_VOTE));
     const timer = this.meetingEl.querySelector<HTMLElement>("[data-timer]")!;
-    const tick = () => (timer.textContent = `Votación: ${Math.max(0, Math.ceil((opts.endsAt() - Date.now()) / 1000))} s`);
+    const tick = () => {
+      const secs = Math.max(0, Math.ceil((opts.endsAt() - Date.now()) / 1000));
+      timer.textContent = `Votación: ${secs} s`;
+      timer.classList.toggle("urgent", secs <= 10);
+    };
     tick();
     this.timerId = window.setInterval(tick, 250);
+    // Todos hablan a la vez: bocadillos que salen aquí y allá
+    if (!REDUCED_MOTION_UI) this.chatterId = window.setInterval(() => this.chatter(), 850);
+  }
+
+  /** Un vecino vivo al azar suelta una frase en un bocadillo. */
+  private chatter() {
+    const alive = [...this.crowd.values()].filter((c) => !c.el.classList.contains("dead") && !c.el.querySelector(".mt-bubble"));
+    if (!alive.length || Math.random() < 0.25) return;
+    const c = alive[Math.floor(Math.random() * alive.length)];
+    const b = document.createElement("span");
+    b.className = "mt-bubble";
+    b.textContent = CHATTER[Math.floor(Math.random() * CHATTER.length)];
+    c.el.appendChild(b);
+    c.el.classList.add("talking");
+    window.setTimeout(() => {
+      b.remove();
+      c.el.classList.remove("talking");
+    }, 1900);
   }
 
   updateMeeting(players: MeetingPlayer[], amAlive: boolean) {
-    const list = this.meetingEl?.querySelector<HTMLElement>("[data-list]");
-    if (!list) return;
-    list.innerHTML = players
-      .map(
-        (p) => `<button class="ov-player ${p.alive ? "" : "dead"} ${this.myVote === p.id ? "chosen" : ""}" data-id="${p.id}"
-          ${!amAlive || !p.alive || this.myVote ? "disabled" : ""}>
-          <span class="dot" style="background:${hexColor(PALETTE[p.look % PALETTE.length].shirt)}"></span>
-          <span class="nm">${escapeHtml(p.name)}${p.isMe ? " (tú)" : ""}</span>
-          <span class="st">${p.alive ? (p.hasVoted ? "✓ ha votado" : "") : "fuera"}</span>
-        </button>`,
-      )
-      .join("");
-    list.querySelectorAll<HTMLButtonElement>(".ov-player").forEach((b) => b.addEventListener("click", () => this.castVote(b.dataset.id!)));
+    const crowd = this.meetingEl?.querySelector<HTMLElement>("[data-crowd]");
+    if (!crowd) return;
+    // Colocación: los vivos en semicírculo delante del Ayuntamiento (dos filas si son muchos)
+    const n = players.length;
+    const perRow = n > 6 ? Math.ceil(n / 2) : n;
+    players.forEach((p, i) => {
+      let c = this.crowd.get(p.id);
+      if (!c) {
+        const el = document.createElement("button");
+        el.className = "mt-vecino";
+        el.dataset.id = p.id;
+        const look = PALETTE[p.look % PALETTE.length];
+        el.innerHTML = `<i class="mt-abuelo" style="${abueloStyle(p.look, i % 3 === 1 ? FRAME.lado : FRAME.frente)};animation-delay:${(-Math.random() * 2).toFixed(2)}s"></i>
+          <b class="mt-name" style="color:${look.name};-webkit-text-stroke:3px ${look.nameStroke};paint-order:stroke fill">${escapeHtml(p.name)}${p.isMe ? " (tú)" : ""}</b>`;
+        if (i % 3 === 1 && i >= perRow / 2) el.querySelector<HTMLElement>(".mt-abuelo")!.classList.add("flip");
+        el.addEventListener("click", () => this.castVote(p.id));
+        crowd.appendChild(el);
+        c = { el, voted: false };
+        this.crowd.set(p.id, c);
+      }
+      const row = n > 6 && i >= perRow ? 1 : 0;
+      const k = row ? i - perRow : i;
+      const count = row ? n - perRow : Math.min(n, perRow);
+      const t = count === 1 ? 0.5 : k / (count - 1);
+      const spread = Math.min(80, 16 + count * 11);
+      const left = 50 + (t - 0.5) * spread;
+      // la fila de delante más abajo y más grande; arco suave
+      const top = (row ? 94 : n > 6 ? 78 : 88) - Math.sin(t * Math.PI) * 4;
+      c.el.style.left = `${left}%`;
+      c.el.style.top = `${top}%`;
+      c.el.style.zIndex = String(10 + Math.round(top));
+      c.el.style.setProperty("--s", row || n <= 6 ? "1" : "0.88");
+      c.el.classList.toggle("dead", !p.alive);
+      c.el.classList.toggle("chosen", this.myVote === p.id);
+      c.el.disabled = !amAlive || !p.alive || !!this.myVote;
+      if (p.hasVoted && !c.voted) {
+        c.voted = true;
+        const ballot = document.createElement("span");
+        ballot.className = "mt-ballot";
+        ballot.innerHTML = ballotSvg();
+        c.el.appendChild(ballot);
+      }
+    });
     const skip = this.meetingEl?.querySelector<HTMLButtonElement>("[data-skip]");
     if (skip) skip.disabled = !!this.myVote;
   }
@@ -135,25 +224,89 @@ export class Overlays {
     this.onVote?.(target);
     this.meetingEl?.querySelectorAll<HTMLButtonElement>("button").forEach((b) => (b.disabled = true));
     if (target !== SKIP_VOTE) this.meetingEl?.querySelector(`[data-id="${target}"]`)?.classList.add("chosen");
+    const help = this.meetingEl?.querySelector(".mt-help");
+    if (help) help.textContent = target === SKIP_VOTE ? "Has saltado el voto." : "Voto echado. A ver qué dicen los demás…";
   }
 
   closeMeeting() {
     window.clearInterval(this.timerId);
+    window.clearInterval(this.chatterId);
     this.meetingEl?.remove();
     this.meetingEl = null;
+    this.crowd.clear();
   }
 
-  showVoteResult(v: VoteResult, names: Record<string, string>) {
+  /**
+   * Resultado de la votación: el camino de salida del pueblo. Si alguien es expulsado,
+   * se aleja andando de espaldas hasta perderse en el horizonte y cae el sello.
+   */
+  showVoteResult(v: VoteResult, names: Record<string, string>, looks: Record<string, number> = {}) {
     this.closeMeeting();
-    const rows = Object.entries(v.counts)
+    this.root.querySelector(".ov-result")?.remove();
+    const chips = Object.entries(v.counts)
       .sort((a, b) => b[1] - a[1])
-      .map(([id, n]) => `<li>${id === SKIP_VOTE ? "Saltar" : escapeHtml(names[id] ?? "?")}: <b>${n}</b></li>`)
+      .map(([id, n]) => `<li>${id === SKIP_VOTE ? "Saltar" : escapeHtml(names[id] ?? "?")} <b>${n}</b></li>`)
       .join("");
-    const msg = v.ejectedName
-      ? `<b>${escapeHtml(v.ejectedName)}</b> ha sido expulsado. ${v.ejectedWasImpostor ? "<span class='imp'>Era impostor.</span>" : "No era impostor."}`
-      : "Nadie ha sido expulsado.";
-    const el = this.card("ov-result", `<h2>Resultado</h2><p>${msg}</p><ul class="ov-counts">${rows || "<li>Sin votos</li>"}</ul>`);
-    window.setTimeout(() => el.remove(), 4800);
+    const gone = v.ejectedId && v.ejectedName;
+    const el = this.card(
+      "ov-result",
+      `<div class="rd-scene">${roadOutScene()}
+         ${gone ? `<i class="rd-walker" style="${abueloStyle(looks[v.ejectedId!] ?? 0, FRAME.espalda)}"></i>` : `<span class="rd-tumble">${tumbleweedSvg()}</span>`}
+         <div class="rd-stamp"></div>
+       </div>
+       <p class="rd-msg" data-msg></p>
+       <ul class="rd-counts">${chips || "<li>Sin votos</li>"}</ul>`,
+    );
+    const msg = el.querySelector<HTMLElement>("[data-msg]")!;
+    const text = gone ? `${v.ejectedName} se va del pueblo…` : "Nadie se va del pueblo… por ahora.";
+    // Texto a máquina
+    let i = 0;
+    const type = window.setInterval(() => {
+      msg.textContent = text.slice(0, ++i);
+      if (i >= text.length) window.clearInterval(type);
+    }, REDUCED_MOTION_UI ? 1 : 45);
+    if (gone) {
+      const walker = el.querySelector<HTMLElement>(".rd-walker")!;
+      // ciclo de andar de espaldas (fotogramas 20–27 de la hoja)
+      let f = 0;
+      const step = window.setInterval(() => {
+        walker.style.backgroundPositionX = `${((FRAME.cicloEspalda + (f++ % 8)) / (FRAME.total - 1)) * 100}%`;
+      }, 110);
+      if (!REDUCED_MOTION_UI)
+        walker.animate(
+          [
+            { left: "46%", bottom: "-4%", transform: "translateX(-50%) scale(1)", opacity: 1 },
+            { left: "49%", bottom: "38%", transform: "translateX(-50%) scale(0.32)", opacity: 1, offset: 0.8 },
+            { left: "50%", bottom: "48%", transform: "translateX(-50%) scale(0.12)", opacity: 0 },
+          ],
+          { duration: 5200, easing: "cubic-bezier(.35,.1,.6,1)", fill: "forwards" },
+        );
+      window.setTimeout(() => window.clearInterval(step), 5400);
+      window.setTimeout(() => {
+        const stamp = el.querySelector<HTMLElement>(".rd-stamp")!;
+        stamp.innerHTML = stampSvg(!!v.ejectedWasImpostor);
+        stamp.classList.add("on");
+        sfx.sello();
+      }, 2300);
+    }
+    window.setTimeout(() => el.remove(), 6900);
+  }
+
+  /** Te han eliminado: viñeta de cómic con el golpe, la caída y el alma que sube. */
+  showDeath(look: number) {
+    this.root.querySelector(".ov-death")?.remove();
+    const el = this.card(
+      "ov-death",
+      `<div class="dt-panel">
+         <span class="dt-burst">${zasBurstSvg()}</span>
+         <i class="dt-abuelo" style="${abueloStyle(look, FRAME.lado)}"></i>
+         <span class="dt-soul">${soulSvg()}</span>
+       </div>
+       <h2>¡Te han dado matarile!</h2>
+       <p class="ov-sub">Ahora eres un fantasma: nadie te ve, pero puedes seguir haciendo tus misiones para ayudar a los vecinos.</p>`,
+    );
+    el.addEventListener("click", () => el.remove());
+    window.setTimeout(() => el.remove(), 4200);
   }
 
   showGameOver(g: GameOver, myId: string, isHost: boolean, onBack: () => void) {
