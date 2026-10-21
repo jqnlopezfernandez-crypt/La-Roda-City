@@ -1017,3 +1017,27 @@ canvas {
   .ov-mg .mg-body { margin:6px 0 2px }
   .ov-mg .mg-stage { width:min(100%, calc((100vh - 96px) * 1.38)); width:min(100%, calc((100dvh - 96px) * 1.38)) }
 }
+
+/* Minijuegos con el móvil en horizontal: dos columnas (texto a la izquierda, juego a la
+   derecha) y el juego se encoge lo justo para que TODO quepa sin desplazar la pantalla. */
+@media (orientation:landscape) and (max-height:560px) {
+  .ov-mg { padding:8px; overflow:hidden }
+  .ov-mg .ov-card {
+    width:min(880px,100%); max-height:calc(100dvh - 16px); box-sizing:border-box;
+    display:grid; grid-template-columns:minmax(140px,200px) minmax(0,1fr); grid-template-rows:auto auto 1fr;
+    column-gap:16px; align-items:start; padding:12px 14px 12px; overflow:hidden
+  }
+  .ov-mg h2 { grid-column:1; grid-row:1; margin:0 0 4px; font-size:19px }
+  .ov-mg .ov-sub { display:block; grid-column:1; grid-row:2; font-size:13px; line-height:1.35; opacity:.85; margin:0 }
+  .ov-mg .mg-msg { grid-column:1; grid-row:3; align-self:start; text-align:left; margin-top:8px; font-size:14px }
+  .ov-mg .mg-body { grid-column:2; grid-row:1 / span 3; margin:0; justify-self:center; max-width:100% }
+  .ov-mg .mg-x { top:auto; bottom:8px; left:10px; right:auto; font-size:20px; opacity:.8 }
+  .ov-mg .mg-stage { width:100% }
+  /* Estanco: estantería de 5 + 4 en vez de 3 × 3 */
+  .ov-mg .mg-shelf {
+    grid-template-columns:repeat(5,1fr); padding:8px 10px 2px;
+    background:linear-gradient(#5e3a22,#5e3a22) 0 47% / 100% 7px no-repeat,linear-gradient(#5e3a22,#5e3a22) 0 98% / 100% 7px no-repeat,#3a2a20
+  }
+  .ov-mg .mg-pack { padding:0 4px }
+  .ov-mg .mg-coin { width:48px; height:48px }
+}

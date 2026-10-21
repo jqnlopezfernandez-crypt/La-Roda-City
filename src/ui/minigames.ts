@@ -735,6 +735,44 @@ function sandbagGame({ body, done, say }: MiniGameContext) {
 }
 
 /** Abre el minijuego de un paso de misión. Devuelve la función que lo cierra. */
+/**
+ * Encaja el minijuego en la pantalla sin tener que desplazarla: si la tarjeta no cabe
+ * en alto, se estrecha la zona de juego (las escenas escalan con el ancho) hasta que quepa.
+ * Se repite cuando el juego cambia de pantalla (p. ej. del estante a la caja), al cargar
+ * las imágenes y al girar el móvil.
+ */
+function fitToScreen(overlay: HTMLElement, body: HTMLElement) {
+  const card = overlay.querySelector<HTMLElement>(".ov-card")!;
+  let queued = 0;
+  const fit = () => {
+    queued = 0;
+    if (!overlay.isConnected) return;
+    body.style.width = "";
+    const pad = parseFloat(getComputedStyle(overlay).paddingTop) * 2;
+    const avail = overlay.clientHeight - pad;
+    let w = body.getBoundingClientRect().width;
+    for (let i = 0; i < 10 && card.scrollHeight > avail + 1 && w > 160; i++) {
+      // la parte que no escala (botones, textos) se estima con la diferencia entre pasos
+      w = Math.max(160, w * Math.min(0.97, avail / card.scrollHeight));
+      body.style.width = `${Math.floor(w)}px`;
+    }
+  };
+  const refit = () => {
+    if (!queued) queued = requestAnimationFrame(fit);
+  };
+  refit();
+  new MutationObserver(refit).observe(body, { childList: true });
+  body.addEventListener("load", refit, true);
+  window.addEventListener("resize", refit);
+  // se deja de escuchar al cerrar
+  new MutationObserver((_, obs) => {
+    if (!overlay.isConnected) {
+      window.removeEventListener("resize", refit);
+      obs.disconnect();
+    }
+  }).observe(document.body, { childList: true });
+}
+
 export function openMiniGame(options: MiniGameOptions): () => void {
   const overlay = document.createElement("div");
   overlay.className = "ov ov-mg";
@@ -748,6 +786,7 @@ export function openMiniGame(options: MiniGameOptions): () => void {
     options.onClose();
   };
   overlay.querySelector(".mg-x")!.addEventListener("click", close);
+  fitToScreen(overlay, body);
   const ctx: MiniGameContext = {
     body,
     missionId: options.missionId,

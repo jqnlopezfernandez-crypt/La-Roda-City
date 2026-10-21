@@ -36,9 +36,13 @@ export const play = {
       await p.waitForTimeout(10);
     }
   },
-  async elegir(p) {
+  async estanco(p) {
     const want = await p.textContent('.mg-ask b');
     await p.click(`[data-o="${want}"]`);
+    // la caja: cobrar el precio exacto con las monedas (de mayor a menor)
+    let cents = Math.round(parseFloat((await p.textContent('p.mg-ask b')).replace(',', '.')) * 100);
+    for (const c of [200, 100, 50, 20, 10]) while (cents >= c) { await p.click(`[data-c="${c}"]`); cents -= c; }
+    await p.click('[data-ok]');
   },
   async contar(p) {
     const n = await p.locator('.mg-pills i').count();
