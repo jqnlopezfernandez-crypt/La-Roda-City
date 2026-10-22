@@ -20,7 +20,9 @@ import sys
 import zipfile
 
 OUT = "/kaggle/working"
-SPEC = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "piezas.json")))
+_ARCHIVO = next((a for a in sys.argv[2:] if a.endswith(".json")), "piezas.json")
+SPEC = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), _ARCHIVO)))
+REFS = os.environ.get("REFS", f"{OUT}/refs")  # láminas de estilo (jpg) pegadas en el cuaderno
 CANDIDATAS = 2  # por pieza (las fachadas generan variantes x 2)
 
 
@@ -37,9 +39,10 @@ def trabajos():
 def prompt_de(p):
     e = SPEC["estilo"]
     # lo importante va primero: lo que pase de 77 tokens se pierde por el final
+    nivel = e.get(p.get("nivel", ""), "")
     if p["tipo"] == "fachada":
-        return f"flat straight-on front view, {p['prompt']}, {e['fachada']}, {e['base']}, {e[p['nivel']]}"
-    return f"{p['prompt']}, {e[p['tipo']]}, {e['base']}, {e[p['nivel']]}"
+        return f"flat straight-on front view, {p['prompt']}, {e['fachada']}, {e['base']}, {nivel}"
+    return f"{p['prompt']}, {e[p['tipo']]}, {e['base']}, {nivel}"
 
 
 def negativo_de(p):
@@ -58,6 +61,16 @@ def generar(parte, prueba=False):
         "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16", use_safetensors=True
     ).to("cuda")
     pipe.set_progress_bar_config(disable=True)
+    refs = {}
+    if any(p.get("ref") for p in SPEC["piezas"]):
+        from PIL import Image
+
+        # IP-Adapter solo para el estilo (InstantStyle): el contenido lo manda el texto
+        pipe.load_ip_adapter("h94/IP-Adapter", subfolder="sdxl_models", weight_name="ip-adapter_sdxl.bin")
+        pipe.set_ip_adapter_scale({"up": {"block_0": [0.0, 1.0, 0.0]}})
+        for f in glob.glob(f"{REFS}/*.jpg"):
+            refs[os.path.basename(f)[:-4]] = Image.open(f).convert("RGB")
+        print("láminas de estilo:", sorted(refs), flush=True)
     import torch.nn.functional as F
 
     convs = [m for m in list(pipe.unet.modules()) + list(pipe.vae.modules()) if isinstance(m, torch.nn.Conv2d)]
@@ -95,7 +108,11 @@ def generar(parte, prueba=False):
         if os.path.exists(ruta):
             continue
         circular({"textura": "xy", "fachada": "x"}.get(p["tipo"], ""))
+        extra = {"ip_adapter_image": refs[p["ref"]]} if refs else {}
+        if refs and p.get("ref") not in refs:
+            extra = {"ip_adapter_image": next(iter(refs.values()))}
         img = pipe(
+            **extra,
             prompt=prompt_de(p),
             negative_prompt=negativo_de(p),
             num_inference_steps=28,
@@ -128,7 +145,7 @@ def post():
 
     # 2) Hojas de muestra (una por tipo) con el nombre debajo de cada candidata
     os.makedirs(f"{OUT}/hojas", exist_ok=True)
-    for tipo in ("textura", "fachada", "sprite"):
+    for tipo in ("textura", "fachada", "sprite", "escena"):
         claves = [p["clave"] for p in SPEC["piezas"] if p["tipo"] == tipo]
         rutas = [r for r in sorted(glob.glob(f"{OUT}/candidatas/*.png")) if os.path.basename(r).split("__")[0] in claves]
         if not rutas:
@@ -155,6 +172,9 @@ def post():
 if __name__ == "__main__":
     if sys.argv[1] == "post":
         post()
+    elif sys.argv[1] == "uno":  # una sola pieza (la primera candidata), para probar
+        PRUEBA[:] = sys.argv[3].split(",")
+        generar(0, prueba=True)
     elif sys.argv[1] == "prueba":
         generar(0, prueba=True)
         post()

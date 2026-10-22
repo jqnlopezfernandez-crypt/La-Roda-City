@@ -16,7 +16,7 @@ import os
 import re
 import sys
 
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageChops, ImageEnhance, ImageFilter
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESTINO = os.path.join(RAIZ, "src", "art", "pintado")
@@ -91,6 +91,23 @@ def entonar(im, color=1.3, contraste=1.15, brillo=0.9):
     return rgb
 
 
+def simplificar(im, colores=10):
+    """Para objetos pequeños: quita el detalle fino (líneas de boceto, texturas) y deja manchas
+    planas de pocos colores con un contorno de tinta limpio, que es lo que se lee a ese tamaño."""
+    im = im.convert("RGBA")
+    alfa = im.getchannel("A").point(lambda a: 255 if a > 110 else 0)
+    rgb = im.convert("RGB").filter(ImageFilter.MedianFilter(5)).filter(ImageFilter.MedianFilter(5))
+    rgb = rgb.quantize(colores, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).convert("RGB")
+    rgb = rgb.filter(ImageFilter.ModeFilter(5))
+    # contorno: el borde de la silueta en tinta
+    borde = ImageChops.subtract(alfa.filter(ImageFilter.MaxFilter(7)), alfa)
+    tinta = Image.new("RGB", rgb.size, (34, 24, 18))
+    rgb = Image.composite(tinta, rgb, borde)
+    out = rgb.convert("RGBA")
+    out.putalpha(ImageChops.lighter(alfa, borde))
+    return out
+
+
 def ajustar_sprite(im, w, h, oy):
     """Recorta al contenido y lo coloca de pie en un lienzo w×h, con la base en oy."""
     im = im.convert("RGBA")
@@ -117,6 +134,14 @@ def main(carpeta, elecciones):
             im = im.crop((round(x0 * im.width), round(y0 * im.height), round(x1 * im.width), round(y1 * im.height)))
         if clave in SPRITES:
             w, h, s, oy = SPRITES[clave]
+            if isinstance(eleccion, dict) and eleccion.get("simple"):
+                # se simplifica a un tamaño intermedio (unas 4 veces el final) y luego se reduce
+                im = im.convert("RGBA")
+                caja = im.getchannel("A").point(lambda a: 255 if a > 24 else 0).getbbox()
+                if caja:
+                    im = im.crop(caja)
+                k = min(4 * w * s / im.width, 4 * h * s / im.height, 1)
+                im = simplificar(im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS))
             out = entonar(ajustar_sprite(im, round(w * s), round(h * s), oy))
         elif clave in TEXTURAS:
             lado = TEXTURAS[clave]
