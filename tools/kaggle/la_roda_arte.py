@@ -24,8 +24,6 @@ try:
     import diffusers  # noqa: F401  (Kaggle ya lo trae: no se actualiza para no romper versiones)
 except ImportError:
     pip("diffusers", "accelerate", "safetensors")
-# torchao preinstalado choca con algunas versiones de diffusers y no hace falta aquí
-subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"])
 
 import torch  # noqa: E402
 from diffusers import StableDiffusionXLPipeline  # noqa: E402
