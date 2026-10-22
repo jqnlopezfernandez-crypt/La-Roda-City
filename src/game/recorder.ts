@@ -23,7 +23,7 @@ export interface Point {
 export type PatternMatrix = number[];
 
 /** Relleno: color CSS o textura del arte (repetida) con su transformación. */
-export type FillPaint = { color: string } | { pattern: string; m?: PatternMatrix };
+export type FillPaint = { color: string } | { pattern: string; m?: PatternMatrix; a?: number };
 /** Trazo: color CSS o textura del arte. */
 export interface LinePaint {
   width: number;
@@ -89,9 +89,12 @@ export class DrawRecorder {
   /** Envuelve un dibujo con el relleno activo en este momento. */
   withFill(draw: (ctx: CanvasRenderingContext2D) => void): DrawFn {
     const fill = this.fill;
+    const alpha = "a" in fill && fill.a !== undefined ? fill.a : 1;
     return (ctx, resolve) => {
       ctx.fillStyle = resolve(fill);
+      if (alpha !== 1) ctx.globalAlpha = alpha;
       draw(ctx);
+      if (alpha !== 1) ctx.globalAlpha = 1;
     };
   }
 
@@ -110,8 +113,8 @@ export class DrawRecorder {
     return this;
   }
 
-  fillTexture(key: string, matrix?: PatternMatrix): this {
-    this.fill = { pattern: key, m: matrix };
+  fillTexture(key: string, matrix?: PatternMatrix, alpha = 1): this {
+    this.fill = { pattern: key, m: matrix, a: alpha };
     return this;
   }
 
@@ -329,6 +332,32 @@ export class DrawRecorder {
       ctx.fill();
       ctx.restore();
     });
+  }
+
+  /**
+   * Bruma oscura en los bordes del mundo (w × h): degradado desde el borde hacia dentro en `band`
+   * píxeles, para que el final del mapa se funda en niebla en lugar de cortarse.
+   */
+  edgeFade(w: number, h: number, band: number, color: number, alpha: number): this {
+    const sides: [Box, number, number, number, number][] = [
+      [{ x0: 0, y0: 0, x1: w, y1: band }, 0, 0, 0, band],
+      [{ x0: 0, y0: h - band, x1: w, y1: h }, 0, h, 0, h - band],
+      [{ x0: 0, y0: 0, x1: band, y1: h }, 0, 0, band, 0],
+      [{ x0: w - band, y0: 0, x1: w, y1: h }, w, 0, w - band, 0],
+    ];
+    for (const [box, gx0, gy0, gx1, gy1] of sides) {
+      this.add(box, (ctx) => {
+        const gradient = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
+        gradient.addColorStop(0, rgba(color, alpha));
+        gradient.addColorStop(0.18, rgba(color, alpha * 0.92));
+        gradient.addColorStop(0.45, rgba(color, alpha * 0.55));
+        gradient.addColorStop(0.75, rgba(color, alpha * 0.18));
+        gradient.addColorStop(1, rgba(color, 0));
+        ctx.fillStyle = gradient;
+        ctx.fillRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0);
+      });
+    }
+    return this;
   }
 
   /** Halo radial de luz. */

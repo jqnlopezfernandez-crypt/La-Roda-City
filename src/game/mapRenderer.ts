@@ -140,6 +140,7 @@ function boundsOf(points: Point[]): Bounds {
 /** Lo que necesita drawSportsCourt de un DrawRecorder (lo cumple también un marco girado). */
 interface CourtPen {
   fillStyle(color: number, alpha?: number): CourtPen;
+  fillTexture(key: string, alpha?: number): CourtPen;
   lineStyle(width: number, color: number, alpha?: number): CourtPen;
   fillRect(x: number, y: number, w: number, h: number): CourtPen;
   strokeRect(x: number, y: number, w: number, h: number): CourtPen;
@@ -168,6 +169,7 @@ function drawCourt(rec: DrawRecorder, kind: string, quad: Point[]): void {
   const corners = (x: number, y: number, ww: number, hh: number) => [P(x, y), P(x + ww, y), P(x + ww, y + hh), P(x, y + hh)];
   const pen: CourtPen = {
     fillStyle: (c, a = 1) => (rec.fillStyle(c, a), pen),
+    fillTexture: (key, a = 1) => (rec.fillTexture(key, undefined, a), pen),
     lineStyle: (wd, c, a = 1) => (rec.lineStyle(wd, c, a), pen),
     fillRect: (x, y, ww, hh) => (rec.fillPoints(corners(x, y, ww, hh)), pen),
     strokeRect: (x, y, ww, hh) => (rec.strokePoints(corners(x, y, ww, hh), true), pen),
@@ -209,10 +211,15 @@ function drawSportsCourt(rec: CourtPen, kind: string, x0: number, y0: number, x1
   const cy = (y0 + y1) / 2;
   const whiteLine = (width = 2) => rec.lineStyle(width, 0xffffff, 0.95);
   if (kind === "futbol") {
-    // Césped a franjas
+    // Césped pintado a franjas de segado (claras y oscuras)
     rec.fillStyle(0x4f9a46, 1).fillRect(x0, y0, w, h);
-    rec.fillStyle(0x5aa851, 1);
+    rec.fillTexture("suelo-cesped", 0.85).fillRect(x0, y0, w, h);
+    rec.fillStyle(0xd8f0a0, 0.13);
     for (let y = y0; y < y1; y += 60) rec.fillRect(x0, y, w, 30);
+    rec.fillStyle(0x1f3a14, 0.08);
+    for (let y = y0 + 30; y < y1; y += 60) rec.fillRect(x0, y, w, 30);
+    // calvas de tierra en las porterías y el centro
+    rec.fillStyle(0x9a7a4a, 0.28).fillCircle(cx, y0 + 26, 16).fillCircle(cx, y1 - 26, 16).fillCircle(cx, cy, 10);
     const margin = 12;
     whiteLine(3);
     rec.strokeRect(x0 + margin, y0 + margin, w - 2 * margin, h - 2 * margin);
@@ -239,6 +246,7 @@ function drawSportsCourt(rec: CourtPen, kind: string, x0: number, y0: number, x1
   } else if (kind === "futbol-sala") {
     rec.fillStyle(0x3d6fb0, 1).fillRect(x0, y0, w, h);
     rec.fillStyle(0xd0703a, 1).fillRect(x0 + 8, y0 + 8, w - 16, h - 16);
+    rec.fillTexture("suelo-asfalto", 0.22).fillRect(x0, y0, w, h);
     whiteLine();
     rec.strokeRect(x0 + 8, y0 + 8, w - 16, h - 16);
     rec.lineBetween(cx, y0 + 8, cx, y1 - 8);
@@ -255,6 +263,7 @@ function drawSportsCourt(rec: CourtPen, kind: string, x0: number, y0: number, x1
     const inset = (h - 24) * 0.12;
     rec.fillStyle(0x3f8a5a, 1).fillRect(x0, y0, w, h);
     rec.fillStyle(0x3b6fa8, 1).fillRect(x0 + 10, y0 + 12, w - 20, h - 24);
+    rec.fillTexture("suelo-asfalto", 0.2).fillRect(x0, y0, w, h);
     whiteLine();
     rec.strokeRect(x0 + 10, y0 + 12, w - 20, h - 24);
     rec.strokeRect(x0 + 10, y0 + 12 + inset, w - 20, (h - 24) * 0.76);
@@ -267,6 +276,7 @@ function drawSportsCourt(rec: CourtPen, kind: string, x0: number, y0: number, x1
   } else if (kind === "baloncesto") {
     rec.fillStyle(0x8c8f96, 1).fillRect(x0, y0, w, h);
     rec.fillStyle(0xc9673b, 1).fillRect(x0 + 8, y0 + 8, w - 16, h - 16);
+    rec.fillTexture("suelo-asfalto", 0.22).fillRect(x0, y0, w, h);
     whiteLine();
     rec.strokeRect(x0 + 8, y0 + 8, w - 16, h - 16);
     rec.lineBetween(x0 + 8, cy, x1 - 8, cy);
@@ -432,7 +442,58 @@ function buildTownDrawing(): DrawRecorder {
       }
     }
   }
+  drawCountryside(rec, blocks, inArea);
+  // Bruma en los bordes: el mapa se funde en la oscuridad en lugar de acabar en seco
+  rec.edgeFade(WORLD_SIZE.width, WORLD_SIZE.height, 900, 0x120c10, 1);
+  const fogRandom = seededRandom(77);
+  const perimeter = [
+    ...Array.from({ length: 18 }, (_, i) => ({ x: (i + fogRandom()) * (WORLD_SIZE.width / 18), y: 120 + fogRandom() * 260 })),
+    ...Array.from({ length: 18 }, (_, i) => ({ x: (i + fogRandom()) * (WORLD_SIZE.width / 18), y: WORLD_SIZE.height - 120 - fogRandom() * 260 })),
+    ...Array.from({ length: 18 }, (_, i) => ({ x: 120 + fogRandom() * 260, y: (i + fogRandom()) * (WORLD_SIZE.height / 18) })),
+    ...Array.from({ length: 18 }, (_, i) => ({ x: WORLD_SIZE.width - 120 - fogRandom() * 260, y: (i + fogRandom()) * (WORLD_SIZE.height / 18) })),
+  ];
+  for (const p of perimeter) rec.glow(p.x, p.y, 220 + fogRandom() * 200, 0x8d8aa0, 0.28 + fogRandom() * 0.12);
   return rec;
+}
+
+/**
+ * Campo alrededor del pueblo: olivares en hileras (lo típico de la campiña sevillana) y
+ * matorral, horneados en el suelo (no cuestan nada por fotograma). Nunca encima de calles,
+ * manzanas, zonas, río ni vías, para no tapar nada jugable.
+ */
+function drawCountryside(rec: DrawRecorder, blocks: Point[][], inArea: (x: number, y: number) => boolean): void {
+  const random = seededRandom(91);
+  const clear = (x: number, y: number) =>
+    !blocks.some((b) => pointInPolygon(x, y, b) || pointInPolygon(x, y - 60, b)) &&
+    !inArea(x, y) &&
+    !inArea(x, y - 60) &&
+    nearestOnNetwork({ x, y }).distance > STREET_HALF_WIDTH + 70 &&
+    nearestOnNetwork({ x, y: y - 70 }).distance > STREET_HALF_WIDTH + 40 &&
+    !riverLines.some((line) => distToPolyline(x, y, line, false) < RIVER_WIDTH + 70) &&
+    !railLines.some((line) => Math.min(distToPolyline(x, y, line, false), distToPolyline(x, y - 60, line, false)) < RAIL_BED_WIDTH + 50);
+  // Olivar: hileras al tresbolillo con huecos (fincas distintas)
+  const dx = 118;
+  const dy = 96;
+  for (let row = 0, y = 60; y < WORLD_SIZE.height + 60; row++, y += dy) {
+    for (let x = 40 + (row % 2) * (dx / 2); x < WORLD_SIZE.width + 60; x += dx) {
+      // fincas: manchas sin olivos
+      if (Math.sin(x * 0.0021 + 1.3) * Math.cos(y * 0.0017) > 0.55) continue;
+      const tx = x + (random() - 0.5) * 18;
+      const ty = y + (random() - 0.5) * 14;
+      if (random() < 0.08 || !clear(tx, ty)) continue;
+      const k = 0.78 + random() * 0.3;
+      rec.fillStyle(COLORS.tinta, 0.22).fillEllipse(tx + 6, ty + 2, 58 * k, 18 * k);
+      rec.image("olivo", tx, ty, 72 * k, 84 * k, 0.53, 0.93, random() < 0.5);
+    }
+  }
+  // Matorral suelto entre las fincas
+  for (let i = 0; i < 900; i++) {
+    const x = random() * WORLD_SIZE.width;
+    const y = random() * WORLD_SIZE.height;
+    if (!clear(x, y)) continue;
+    const k = 0.7 + random() * 0.5;
+    rec.image("arbusto", x, y, 44 * k, 32 * k, 0.52, 0.84, random() < 0.5);
+  }
 }
 
 /** El puente es de hierro si el lugar más cercano lo dice en su nombre. */
@@ -1014,7 +1075,8 @@ function drawAreas(rec: DrawRecorder): void {
       continue;
     }
     if (def.tipo === "campo") {
-      rec.fillStyle(0x3c7a3a, 1).fillPoints(area.pts);
+      rec.fillTexture("suelo-cesped").fillPoints(area.pts);
+      rec.fillStyle(0x24501f, 0.25).fillPoints(area.pts);
       for (const court of courts) drawCourt(rec, court.tipo, court.pts);
       rec.lineStyle(4, COLORS.tinta, 1).strokePoints(area.pts, true);
       continue;
