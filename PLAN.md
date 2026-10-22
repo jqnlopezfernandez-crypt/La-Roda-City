@@ -94,6 +94,15 @@ Página jugable (sin servidor, modo en solitario): artifact "La Roda City" — s
 - Probado: `tests/e2e/minijuegos.mjs` 18/18 OK (vertical y horizontal); capturas con `tests/e2e/capturas-minijuegos.mjs`.
 - Fachadas pintadas del Cuartel y la Estación en el mapa. Ayuntamiento e Iglesia salieron con cielo/tejados: otra tanda.
 
+### Mapa sin bordes vacíos y tercera tanda de arte (22-10-2026) ✅
+- Bordes del mapa en bruma oscura con niebla; campo con olivares en hileras, pinares y matorral (horneados, sin coste por fotograma).
+- Río, estanques y piscina con agua pintada; piedras y matas en las orillas; arriates de geranios en los parques;
+  césped del campo de fútbol a franjas y pistas con textura.
+- Fachadas pintadas del Ayuntamiento y la Iglesia (ya están las cuatro: Ayuntamiento, Iglesia, Estación y Cuartel).
+- Minijuegos: monedas, cabeza de la estatua, carne del kebab y suelo de la peluquería pintados.
+- La misión de los peces pasa al Parque Peces (la canasta sigue en el Parque Europa).
+- Probado: minijuegos 18/18, 73 pruebas Vitest, capturas del mapa en bordes, campo, río, piscina y parques.
+
 ## Fase 7 — Publicación 🟡 preparada · ⛔ despliegue (necesita cuentas)
 - ✅ `.github/workflows/pages.yml` (cliente → GitHub Pages con `VITE_SERVER_URL`), `Dockerfile`,
   `render.yaml`, `/salud`, `package-lock.json` del PC (incluye dependencias de Linux).

@@ -361,7 +361,13 @@ export function courtScene(): string {
 }
 
 /** Suelo de la peluquería (damero de 8 columnas) en un canvas. */
-export function drawSalonFloor(g: CanvasRenderingContext2D, width: number, height: number): void {
+export function drawSalonFloor(g: CanvasRenderingContext2D, width: number, height: number, onLoad?: () => void): void {
+  const fondo = imagenPintada("escena-peluqueria", onLoad);
+  if (fondo) {
+    const k = Math.max(width / fondo.naturalWidth, height / fondo.naturalHeight);
+    g.drawImage(fondo, (width - fondo.naturalWidth * k) / 2, (height - fondo.naturalHeight * k) / 2, fondo.naturalWidth * k, fondo.naturalHeight * k);
+    return;
+  }
   const tile = width / 8;
   for (let col = 0; col < 8; col++) {
     for (let row = 0; row < Math.ceil(height / tile); row++) {
@@ -501,11 +507,14 @@ export function kebabScene(): string {
     );
     meat += inkStroke([[180 - halfWidth + 8, y + 9], [180 + halfWidth * 0.6, y + 11]], 1.6, "#c98a4e", 20 + i, 1.2, 0.8);
   }
+  if (pintada("pieza-carne-kebab")) meat = mgPieza("pieza-carne-kebab", 180, 112, 112, 256);
   // Volumen: sombra cilíndrica, brillo de grasa y tostado (el asador es redondo, no una pila de tablas)
-  meat +=
+  if (!pintada("pieza-carne-kebab")) meat +=
     '<defs><linearGradient id="carne-vol" x1="0" x2="1"><stop offset="0" stop-color="#2a1208" stop-opacity="0.75"/><stop offset="0.35" stop-color="#2a1208" stop-opacity="0"/><stop offset="0.55" stop-color="#ffd49a" stop-opacity="0.35"/><stop offset="0.7" stop-color="#2a1208" stop-opacity="0"/><stop offset="1" stop-color="#2a1208" stop-opacity="0.8"/></linearGradient></defs>';
-  meat += '<path d="M110 22 L243 22 L238 202 L122 202Z" fill="url(#carne-vol)" style="mix-blend-mode:multiply" opacity="0.9"/>';
-  meat += speckles(116, 26, 120, 172, 46, ["#3a1a0c", "#5a2a14", "#e0a060"], 1.2, 3.4, 0.85, 61);
+  if (!pintada("pieza-carne-kebab")) {
+    meat += '<path d="M110 22 L243 22 L238 202 L122 202Z" fill="url(#carne-vol)" style="mix-blend-mode:multiply" opacity="0.9"/>';
+    meat += speckles(116, 26, 120, 172, 46, ["#3a1a0c", "#5a2a14", "#e0a060"], 1.2, 3.4, 0.85, 61);
+  }
   svg += `<g class="mg-meat">${meat}</g>`;
   // Bandeja
   svg += inkShape(rectPts(110, 206, 140, 14), "#9aa3a8", { seed: 3, amp: 0.4, ink: 2.2 });

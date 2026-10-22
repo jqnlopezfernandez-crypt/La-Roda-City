@@ -1258,3 +1258,5 @@ canvas {
 @media (prefers-reduced-motion:reduce) {
   .mg-cubito, .mg-kebab .mg-resist, .mg-kebab .mg-brasa, .mg-piscina .mg-causticas path, .mg-riada .mg-lluvia, .mg-riada .mg-rayo, .mg-cubata .mg-bar-pintada .mg-stream { animation:none }
 }
+.mg-coin-pintada { position:relative; display:block; filter:drop-shadow(0 4px 3px rgba(0,0,0,.45)) }
+.mg-coin-pintada b { position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); text-align:center; font:900 15px Nunito,sans-serif; color:#2a1c14; text-shadow:0 1px 0 #ffe9a8, 0 0 6px #fff6c8; pointer-events:none }

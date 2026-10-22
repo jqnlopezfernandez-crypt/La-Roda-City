@@ -1,0 +1,6 @@
+{
+  "edificio-ayuntamiento-largo": "edificio-ayuntamiento-largo__1037.png",
+  "edificio-ayuntamiento-corto": {"img": "edificio-ayuntamiento-largo__1037.png", "recorte": [0.3, 0, 0.66, 1]},
+  "edificio-iglesia-largo": {"img": "edificio-iglesia-corto__1037.png", "recorte": [0, 0.55, 1, 0.86]},
+  "edificio-iglesia-corto": {"img": "edificio-iglesia-corto__1037.png", "recorte": [0.55, 0.45, 1, 0.86]}
+}

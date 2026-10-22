@@ -70,6 +70,10 @@ export const ART: ArtEntry[] = [
   { key: "suelo-campo", w: 512, h: 512, scale: 1, svg: () => fieldTexture(512), grupo: "suelo" },
   { key: "suelo-cesped", w: 512, h: 512, scale: 1, svg: () => fieldTexture(512, "#5f8a3e", 33, false), grupo: "suelo" },
   { key: "suelo-losas", w: 96, h: 96, scale: 128 / 96, svg: () => slabTexture(128), grupo: "suelo" },
+  // Agua y arriates (pintados en Kaggle; el SVG es solo una reserva lisa)
+  { key: "suelo-agua", w: 256, h: 256, scale: 1, svg: () => svgDoc(256, 256, '<rect width="256" height="256" fill="#3f7891"/>'), grupo: "suelo" },
+  { key: "suelo-agua-piscina", w: 192, h: 192, scale: 256 / 192, svg: () => svgDoc(256, 256, '<rect width="256" height="256" fill="#2f9cc7"/>'), grupo: "suelo" },
+  { key: "suelo-arriate", w: 96, h: 96, scale: 2, svg: () => svgDoc(192, 192, '<rect width="192" height="192" fill="#4f8a3a"/>'), grupo: "suelo" },
   ...CORNER_ROOFS.map(
     (color, i): ArtEntry => ({
       key: `teja-${i}`,
@@ -111,6 +115,9 @@ export const ART: ArtEntry[] = [
   { key: "buganvilla", w: 40, h: 56, scale: 1.5, ox: 0.5, oy: 0.95, svg: bougainvillea, grupo: "vegetacion" },
   { key: "pilon", w: 64, h: 44, scale: 1.5, ox: 0.5, oy: 0.88, svg: waterTrough, grupo: "mobiliario" },
   { key: "papelera", w: 16, h: 26, scale: 1.5, ox: 0.5, oy: 0.95, svg: litterBin, grupo: "mobiliario" },
+  { key: "olivo-campo", w: 80, h: 84, scale: 1.5, ox: 0.5, oy: 0.95, svg: oliveTree, grupo: "vegetacion" },
+  { key: "pino", w: 86, h: 96, scale: 1.5, ox: 0.5, oy: 0.95, svg: oliveTree, grupo: "vegetacion" },
+  { key: "piedras", w: 30, h: 20, scale: 1.5, ox: 0.5, oy: 0.9, svg: bush, grupo: "vegetacion" },
   // Edificios singulares: fachadas (se deforman sobre la huella) y torres (de pie)
   ...(
     [

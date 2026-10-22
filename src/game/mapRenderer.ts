@@ -484,8 +484,17 @@ function drawCountryside(rec: DrawRecorder, blocks: Point[][], inArea: (x: numbe
       if (random() < 0.08 || !clear(tx, ty)) continue;
       const k = 0.78 + random() * 0.3;
       rec.fillStyle(COLORS.tinta, 0.22).fillEllipse(tx + 6, ty + 2, 58 * k, 18 * k);
-      rec.image("olivo", tx, ty, 72 * k, 84 * k, 0.53, 0.93, random() < 0.5);
+      rec.image("olivo-campo", tx, ty, 80 * k, 84 * k, 0.5, 0.95, random() < 0.5);
     }
+  }
+  // Pinares en las manchas sin olivos (sobre todo hacia los bordes)
+  for (let i = 0; i < 700; i++) {
+    const x = random() * WORLD_SIZE.width;
+    const y = random() * WORLD_SIZE.height;
+    if (Math.sin(x * 0.0021 + 1.3) * Math.cos(y * 0.0017) <= 0.55 || !clear(x, y)) continue;
+    const k = 0.8 + random() * 0.4;
+    rec.fillStyle(COLORS.tinta, 0.22).fillEllipse(x + 6, y + 2, 60 * k, 18 * k);
+    rec.image("pino", x, y, 86 * k, 96 * k, 0.5, 0.95, random() < 0.5);
   }
   // Matorral suelto entre las fincas
   for (let i = 0; i < 900; i++) {
@@ -530,8 +539,7 @@ function drawRiverDetails(rec: DrawRecorder): void {
           const sy = py + ny * r * side;
           const pick = random();
           if (pick < 0.35) {
-            rec.fillStyle(COLORS.tinta, 0.8).fillEllipse(sx, sy + 1, 11, 7);
-            rec.fillStyle(random() < 0.5 ? 0x9a948a : 0xb8ad98, 1).fillEllipse(sx, sy, 9, 5.5);
+            rec.image("piedras", sx, sy, 24, 16, 0.5, 0.9, random() < 0.5);
           } else if (pick < 0.5) {
             rec.image(artCanvas("canas") ? "canas" : "arbusto", sx, sy + 6, 30, 26, 0.5, 0.9, random() < 0.5);
           }
@@ -1021,8 +1029,9 @@ function drawPool(rec: DrawRecorder, id: string, pts: Point[]): void {
       rec.fillTexture("suelo-losas").fillPoints(offsetPolygon(shape, -14));
       rec.fillStyle(COLORS.tinta, 1).fillPoints(offsetPolygon(shape, -2.5));
       rec.fillStyle(0xf3efe6, 1).fillPoints(offsetPolygon(shape, -1));
-      rec.fillStyle(0x2f9cc7, 1).fillPoints(offsetPolygon(shape, 1.5));
-      rec.fillStyle(0x7fd3ec, 0.45).fillPoints(offsetPolygon(shape, 7));
+      rec.fillTexture("suelo-agua-piscina").fillPoints(offsetPolygon(shape, 1.5));
+      rec.fillStyle(0x0d4a63, 0.25).fillPoints(offsetPolygon(shape, 1.5));
+      rec.fillStyle(0xbdf0ff, 0.18).fillPoints(offsetPolygon(shape, 7));
       // Calles de nado a lo largo del lado largo
       const box = boundsOf(shape);
       const w = box.x1 - box.x0;
@@ -1148,6 +1157,16 @@ function drawAreas(rec: DrawRecorder): void {
     rec.lineStyle(11, COLORS.albero, 1).lineBetween(entry.x, entry.y, center.x, center.y);
     rec.fillStyle(COLORS.tinta, 0.45).fillCircle(center.x, center.y, 20);
     rec.fillTexture("suelo-losas").fillCircle(center.x, center.y, 17);
+    // Arriates de geranios alrededor de la glorieta central (si caben dentro del parque)
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const bx = center.x + Math.cos(a) * 44;
+      const by = center.y + Math.sin(a) * 34;
+      if (!pointInPolygon(bx, by, area.pts) || distToPolyline(bx, by, area.pts, true) < 30) continue;
+      rec.fillStyle(COLORS.tinta, 0.8).fillEllipse(bx, by, 40, 26);
+      rec.fillStyle(0x8a6a44, 1).fillEllipse(bx, by, 36, 22);
+      rec.fillTexture("suelo-arriate").fillEllipse(bx, by - 1, 31, 18);
+    }
     for (const court of courts) drawCourt(rec, court.tipo, court.pts);
     for (const obstacle of worldObstacles) {
       if (obstacle.area !== def.id) continue;
@@ -1164,8 +1183,9 @@ function drawAreas(rec: DrawRecorder): void {
       rec.fillStyle(COLORS.tinta, 1).fillCircle(pond.c.x, pond.c.y, pond.r + 9);
       rec.fillTexture("suelo-losas").fillCircle(pond.c.x, pond.c.y, pond.r + 6);
       rec.fillStyle(COLORS.tinta, 1).fillCircle(pond.c.x, pond.c.y, pond.r + 1.5);
-      rec.fillStyle(COLORS.agua, 1).fillCircle(pond.c.x, pond.c.y, pond.r);
-      rec.fillStyle(COLORS.aguaClara, 0.6).fillCircle(pond.c.x - pond.r * 0.3, pond.c.y - pond.r * 0.3, pond.r * 0.35);
+      rec.fillTexture("suelo-agua").fillCircle(pond.c.x, pond.c.y, pond.r);
+      rec.fillStyle(0x2e5a3a, 0.25).fillCircle(pond.c.x, pond.c.y, pond.r);
+      rec.fillStyle(COLORS.aguaClara, 0.35).fillCircle(pond.c.x - pond.r * 0.3, pond.c.y - pond.r * 0.3, pond.r * 0.35);
       for (let i = 0; i < 5; i++) {
         const angle = i * 1.3 + 0.4;
         rec.fillStyle(0xf08a24, 1).fillEllipse(pond.c.x + Math.cos(angle) * pond.r * 0.55, pond.c.y + Math.sin(angle) * pond.r * 0.55, 9, 5);

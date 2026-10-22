@@ -13,7 +13,7 @@ tinta negra ni los brillos. Las piezas que no salieron bien se quedan con su dib
 import os
 import sys
 
-from PIL import Image, ImageChops, ImageEnhance, ImageOps
+from PIL import Image, ImageChops, ImageEnhance, ImageFilter, ImageOps
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESTINO = os.path.join(RAIZ, "src", "art", "pintado", "mg")
@@ -81,6 +81,71 @@ def recortar(im, caja):
     return im.crop((round(x0 * im.width), round(y0 * im.height), round(x1 * im.width), round(y1 * im.height)))
 
 
+# Tercera tanda (tools/kaggle/tanda3.json): texturas y vegetación del mapa, en src/art/pintado/<clave>.png.
+# Las texturas del mapa se suavizan (poco detalle: se repiten mucho y se ven pequeñas).
+MAPA_TEXTURAS = {  # clave: (archivo, tinte, fuerza, saturación, contraste, lado)
+    "suelo-agua": ("agua-rio__1000.png", "#3f8aa8", 0.8, 1.3, 0.7, 256),
+    "suelo-agua-piscina": ("agua-piscina__1037.png", "#38b6dc", 0.85, 1.4, 0.65, 256),
+    "suelo-arriate": ("arriate__1037.png", "#4f8a3a", 0.22, 1.9, 1.0, 192),
+}
+MAPA_SPRITES = {  # clave: (archivo en sprites/, tinte, fuerza, saturación, (w, h, escala, oy))
+    "olivo-campo": ("olivo-campo__1037.png", "#7d8f4a", 0.45, 1.5, (80, 84, 1.5, 0.95)),
+    "pino": ("pino__1000.png", "#4f7a3a", 0.55, 1.6, (86, 96, 1.5, 0.95)),
+    "piedras": ("piedras__1037.png", "#9a948a", 0.25, 1.2, (30, 20, 1.5, 0.9)),
+}
+TANDA3_PIEZAS = {  # minijuegos: (archivo, tinte, fuerza, saturación, recorte, lado)
+    "pieza-cabeza": ("pieza-cabeza__1000.png", "#e8e2d2", 0.4, 1.0, (0.2, 0.12, 0.8, 0.62), 160),
+    "pieza-moneda": ("pieza-moneda__1000.png", "#e0b84a", 0.6, 1.6, None, 140),
+    "pieza-carne-kebab": ("pieza-carne-kebab__1000.png", "#a0582c", 0.6, 1.6, None, 300),
+}
+
+
+def mapa(carpeta):
+    destino = os.path.dirname(DESTINO)
+    for clave, (nombre, color, fuerza, sat, contraste, lado) in MAPA_TEXTURAS.items():
+        im = Image.open(os.path.join(carpeta, "candidatas", nombre)).convert("RGB")
+        im = im.filter(ImageFilter.GaussianBlur(1.5))
+        im = ImageEnhance.Contrast(tenir(im, color, fuerza, sat)).enhance(contraste)
+        im = im.resize((lado, lado), Image.LANCZOS)
+        ruta = os.path.join(destino, f"{clave}.png")
+        im.quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).save(ruta, optimize=True)
+        print(f"{clave:22s} {im.size} {os.path.getsize(ruta) // 1024} KB")
+    for clave, (nombre, color, fuerza, sat, (w, h, k, oy)) in MAPA_SPRITES.items():
+        im = Image.open(os.path.join(carpeta, "sprites", nombre)).convert("RGBA")
+        a = im.getchannel("A").point(lambda v: 0 if v < 40 else (255 if v > 200 else v))
+        im.putalpha(a)
+        bb = a.point(lambda v: 255 if v > 24 else 0).getbbox()
+        im = tenir(im.crop(bb), color, fuerza, sat)
+        W, H = round(w * k), round(h * k)
+        base = round(H * oy)
+        e = min(W / im.width, base / im.height)
+        im = im.resize((max(1, round(im.width * e)), max(1, round(im.height * e))), Image.LANCZOS)
+        lienzo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        lienzo.paste(im, ((W - im.width) // 2, base - im.height), im)
+        ruta = os.path.join(destino, f"{clave}.png")
+        lienzo.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(ruta, optimize=True)
+        print(f"{clave:22s} {lienzo.size} {os.path.getsize(ruta) // 1024} KB")
+    for clave, (nombre, color, fuerza, sat, caja, lado) in TANDA3_PIEZAS.items():
+        im = Image.open(os.path.join(carpeta, "sprites", nombre)).convert("RGBA")
+        im = recortar(im, caja)
+        bb = im.getchannel("A").point(lambda v: 255 if v > 24 else 0).getbbox()
+        if bb:
+            im = im.crop(bb)
+        im.putalpha(im.getchannel("A").point(lambda v: 0 if v < 40 else (255 if v > 200 else v)))
+        im = tenir(im, color, fuerza, sat)
+        e = min(1.0, lado / max(im.size))
+        im = im.resize((max(1, round(im.width * e)), max(1, round(im.height * e))), Image.LANCZOS)
+        ruta = os.path.join(DESTINO, f"{clave}.png")
+        im.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(ruta, optimize=True)
+        print(f"{clave:22s} {im.size} {os.path.getsize(ruta) // 1024} KB")
+    # Fondo de la peluquería (minijuego de barrer)
+    im = tenir(Image.open(os.path.join(carpeta, "candidatas", "escena-peluqueria__1000.png")), "#c9a46a", 0.3, 1.4)
+    im = im.resize((640, round(640 * im.height / im.width)), Image.LANCZOS)
+    ruta = os.path.join(DESTINO, "escena-peluqueria.jpg")
+    im.save(ruta, quality=70, optimize=True, progressive=True)
+    print(f"escena-peluqueria      {im.size} {os.path.getsize(ruta) // 1024} KB")
+
+
 def main(carpeta):
     os.makedirs(DESTINO, exist_ok=True)
     total = 0
@@ -123,4 +188,7 @@ def main(carpeta):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    if len(sys.argv) > 2 and sys.argv[2] == "mapa":
+        mapa(sys.argv[1])  # tercera tanda
+    else:
+        main(sys.argv[1])

@@ -76,3 +76,11 @@ Comparado en el juego con capturas de antes y después:
 - No entran: textura de la peluquería (salió como mosaico roto), moneda (con cara), pastilla, cabeza de la estatua,
   salabre y las fachadas del Ayuntamiento y la Iglesia (salieron como perfil de tejados con cielo). Para esas fachadas
   hace falta otra tanda pidiendo «solo el muro, sin cielo ni tejado».
+
+## Tercera tanda (22-10-2026)
+- Entran: agua del río y de la piscina (suavizadas y teñidas), arriate de geranios, olivo y pino de campo, piedras,
+  fachadas del Ayuntamiento (muro de dos plantas con arcos y balcón) e Iglesia (recortes sin cielo), moneda, cabeza
+  de la estatua, carne del kebab y suelo de la peluquería. Se integran con `python3 tools/integrar_mg.py <carpeta> mapa`
+  y `tools/kaggle/elecciones-tanda3.json`.
+- No entran: césped, campo y tierra (salieron recargados para el mapa), cañas y nenúfares (sin fondo limpio), cápsula,
+  pastilla y salabre.

@@ -155,7 +155,7 @@ function rubGame({ body, done, say }: MiniGameContext, kind: "plato" | "pelo") {
   const draw = () => {
     g.clearRect(0, 0, width, height);
     if (kind === "plato") drawPlate(g, width, height, draw, 1 - spots.reduce((t, spot) => t + Math.max(0, spot.left), 0) / spots.length);
-    else drawSalonFloor(g, width, height);
+    else drawSalonFloor(g, width, height, draw);
     for (const spot of spots) {
       if (spot.left <= 0) continue;
       g.globalAlpha = spot.left;
@@ -414,7 +414,7 @@ function tobaccoShopGame({ body, done, say }: MiniGameContext) {
     let paid = 0;
     body.innerHTML = `<p class="mg-ask">${wanted.name}: cobra <b>${euros(price)}</b></p>
       <div class="mg-till">${tillScene()}${svgImg(tobaccoPackSvg(wanted, 99), "mg-till-pack")}</div>
-      <div class="mg-coins">${[200, 100, 50, 20, 10].map((cents) => `<button class="mg-coin" data-c="${cents}" aria-label="${euros(cents)}">${svgImg(coinSvg(cents))}</button>`).join("")}</div>
+      <div class="mg-coins">${[200, 100, 50, 20, 10].map((cents) => `<button class="mg-coin" data-c="${cents}" aria-label="${euros(cents)}">${mgUrl("pieza-moneda") ? `<span class="mg-coin-pintada">${mgImg("pieza-moneda", () => coinSvg(cents))}<b>${cents >= 100 ? `${cents / 100}€` : cents}</b></span>` : svgImg(coinSvg(cents))}</button>`).join("")}</div>
       <div class="mg-grid"><button class="btn" data-reset>Empezar de nuevo</button><button class="btn btn-primary" data-ok>Cobrar</button></div>`;
     const display = body.querySelector(".mg-display")!;
     body.querySelectorAll<HTMLElement>("[data-c]").forEach((coin) =>
@@ -657,7 +657,7 @@ function dragStage(body: HTMLElement, scene: string, W: number, H: number) {
 function statueHeadGame({ body, done, say }: MiniGameContext) {
   const { stage, piece, draggable } = dragStage(body, headlessStatueScene(), 360, 260);
   const home = { x: 64, y: 222 };
-  const head = piece(statueHeadSvg(), home.x, home.y, 62, "mg-head");
+  const head = piece(statueHeadSvg(), home.x, home.y, 66, "mg-head", "pieza-cabeza");
   const neck = { x: 180, y: 78 };
   say("Arrastra la cabeza hasta la estatua");
   draggable(head, home, (x, y) => {
