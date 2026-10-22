@@ -55,10 +55,12 @@ PRUEBA = ["fachada-0", "fachada-1", "fachada-3", "edificio-ayuntamiento-largo"]
 
 def generar(parte, prueba=False):
     import torch
-    from diffusers import StableDiffusionXLPipeline
+    from diffusers import AutoencoderKL, StableDiffusionXLPipeline
 
+    # VAE corregido para fp16 (licencia MIT): el original se pasa a fp32 al decodificar y no cabe en la T4
+    vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
     pipe = StableDiffusionXLPipeline.from_pretrained(
-        "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16", use_safetensors=True
+        "stabilityai/stable-diffusion-xl-base-1.0", vae=vae, torch_dtype=torch.float16, variant="fp16", use_safetensors=True
     )
     pipe.set_progress_bar_config(disable=True)
     refs = {}
@@ -71,10 +73,7 @@ def generar(parte, prueba=False):
         for f in glob.glob(f"{REFS}/*.jpg"):
             refs[os.path.basename(f)[:-4]] = Image.open(f).convert("RGB")
         print("láminas de estilo:", sorted(refs), flush=True)
-        # con el IP-Adapter no cabe todo en los 15 GB de la T4: cada parte sube a la GPU solo al usarse
-        pipe.enable_model_cpu_offload()
-    else:
-        pipe.to("cuda")
+    pipe.to("cuda")
     import torch.nn.functional as F
 
     convs = [m for m in list(pipe.unet.modules()) + list(pipe.vae.modules()) if isinstance(m, torch.nn.Conv2d)]
@@ -115,17 +114,32 @@ def generar(parte, prueba=False):
         extra = {"ip_adapter_image": refs[p["ref"]]} if refs else {}
         if refs and p.get("ref") not in refs:
             extra = {"ip_adapter_image": next(iter(refs.values()))}
-        torch.cuda.empty_cache()
-        img = pipe(
-            **extra,
-            prompt=prompt_de(p),
-            negative_prompt=negativo_de(p),
-            num_inference_steps=28,
-            guidance_scale=6.0,
-            width=p["w"],
-            height=p["h"],
-            generator=torch.Generator("cuda").manual_seed(semilla),
-        ).images[0]
+        def pintar():
+            torch.cuda.empty_cache()
+            return pipe(
+                **extra,
+                prompt=prompt_de(p),
+                negative_prompt=negativo_de(p),
+                num_inference_steps=28,
+                guidance_scale=6.0,
+                width=p["w"],
+                height=p["h"],
+                generator=torch.Generator("cuda").manual_seed(semilla),
+            ).images[0]
+
+        try:
+            img = pintar()
+        except torch.OutOfMemoryError:
+            # sin memoria: se repite decodificando por trozos (puede dejar una costura suave)
+            print(f"[{parte}] sin memoria en {p['clave']}: se repite por trozos", flush=True)
+            pipe.vae.enable_tiling()
+            try:
+                img = pintar()
+            except torch.OutOfMemoryError:
+                print(f"[{parte}] se salta {p['clave']}", flush=True)
+                continue
+            finally:
+                pipe.vae.disable_tiling()
         img.save(ruta)
         print(f"[{parte}] {i + 1}/{len(lista)} {os.path.basename(ruta)}", flush=True)
 
