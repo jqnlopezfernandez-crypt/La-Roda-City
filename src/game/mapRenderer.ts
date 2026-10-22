@@ -9,7 +9,7 @@ import { AREAS, courtPolygon } from "../../shared/map/places";
 import { RAIL_BED_WIDTH, levelCrossings, railLines } from "../../shared/map/railway";
 import { LANDMARK_HEIGHT, landmarks, shopSigns } from "../../shared/map/landmarks";
 import Phaser from "phaser";
-import { addProp } from "../art/runtime";
+import { addProp, artCanvas } from "../art/runtime";
 
 /**
  * Dibujo del pueblo. Todo el mapa se "graba" una vez en un DrawRecorder (campo,
@@ -319,6 +319,7 @@ function buildTownDrawing(): DrawRecorder {
   strokeRiver(RIVER_WIDTH + 16, COLORS.orilla);
   strokeRiver(RIVER_WIDTH, COLORS.agua);
   strokeRiver(RIVER_WIDTH * 0.3, COLORS.aguaClara, 0.5);
+  drawRiverDetails(rec);
   drawAreas(rec);
   drawRailways(rec);
 
@@ -493,6 +494,50 @@ function drawCountryside(rec: DrawRecorder, blocks: Point[][], inArea: (x: numbe
     if (!clear(x, y)) continue;
     const k = 0.7 + random() * 0.5;
     rec.image("arbusto", x, y, 44 * k, 32 * k, 0.52, 0.84, random() < 0.5);
+  }
+}
+
+/**
+ * Río con vida: agua pintada (si hay textura), ondas que siguen la corriente, piedras y cañas
+ * en las orillas. Todo horneado en el suelo.
+ */
+function drawRiverDetails(rec: DrawRecorder): void {
+  const random = seededRandom(57);
+  if (artCanvas("suelo-agua")) {
+    for (const line of riverLines) rec.lineTexture(RIVER_WIDTH - 2, "suelo-agua").strokePoints(line, false);
+    for (const line of riverLines) rec.lineStyle(RIVER_WIDTH * 0.25, COLORS.aguaClara, 0.18).strokePoints(line, false);
+  }
+  for (const line of riverLines) {
+    for (let i = 0; i < line.length - 1; i++) {
+      const a = line[i];
+      const b = line[i + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 1) continue;
+      const tx = (b.x - a.x) / len;
+      const ty = (b.y - a.y) / len;
+      const nx = -ty;
+      const ny = tx;
+      for (let d = random() * 30; d < len; d += 34 + random() * 30) {
+        const px = a.x + tx * d;
+        const py = a.y + ty * d;
+        // Ondas: trazos cortos en la dirección de la corriente
+        const off = (random() - 0.5) * RIVER_WIDTH * 0.6;
+        rec.lineStyle(2.5, 0xe2f4f7, 0.75).lineBetween(px + nx * off, py + ny * off, px + nx * off + tx * 16, py + ny * off + ty * 16);
+        // Orillas: piedras y matas a uno y otro lado
+        for (const side of [-1, 1]) {
+          const r = RIVER_WIDTH / 2 + 9 + random() * 6;
+          const sx = px + nx * r * side;
+          const sy = py + ny * r * side;
+          const pick = random();
+          if (pick < 0.35) {
+            rec.fillStyle(COLORS.tinta, 0.8).fillEllipse(sx, sy + 1, 11, 7);
+            rec.fillStyle(random() < 0.5 ? 0x9a948a : 0xb8ad98, 1).fillEllipse(sx, sy, 9, 5.5);
+          } else if (pick < 0.5) {
+            rec.image(artCanvas("canas") ? "canas" : "arbusto", sx, sy + 6, 30, 26, 0.5, 0.9, random() < 0.5);
+          }
+        }
+      }
+    }
   }
 }
 
