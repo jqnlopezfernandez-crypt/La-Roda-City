@@ -16,7 +16,7 @@ import os
 import re
 import sys
 
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESTINO = os.path.join(RAIZ, "src", "art", "pintado")
@@ -78,6 +78,19 @@ def reducir(im):
     return im.convert("RGB").quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
 
 
+def entonar(im, color=1.3, contraste=1.15, brillo=0.9):
+    """Lleva la pieza a la paleta del juego: algo más de color y contraste y menos blanco
+    (el modelo tiende a tonos lavados de boceto; las láminas de referencia son más oscuras)."""
+    alfa = im.getchannel("A") if im.mode == "RGBA" else None
+    rgb = im.convert("RGB")
+    rgb = ImageEnhance.Color(rgb).enhance(color)
+    rgb = ImageEnhance.Contrast(rgb).enhance(contraste)
+    rgb = ImageEnhance.Brightness(rgb).enhance(brillo)
+    if alfa is not None:
+        rgb.putalpha(alfa)
+    return rgb
+
+
 def ajustar_sprite(im, w, h, oy):
     """Recorta al contenido y lo coloca de pie en un lienzo w×h, con la base en oy."""
     im = im.convert("RGBA")
@@ -104,10 +117,10 @@ def main(carpeta, elecciones):
             im = im.crop((round(x0 * im.width), round(y0 * im.height), round(x1 * im.width), round(y1 * im.height)))
         if clave in SPRITES:
             w, h, s, oy = SPRITES[clave]
-            out = ajustar_sprite(im, round(w * s), round(h * s), oy)
+            out = entonar(ajustar_sprite(im, round(w * s), round(h * s), oy))
         elif clave in TEXTURAS:
             lado = TEXTURAS[clave]
-            out = im.convert("RGB").resize((lado, lado), Image.LANCZOS)
+            out = entonar(im.convert("RGB").resize((lado, lado), Image.LANCZOS), 1.25, 1.1, 0.92)
         elif tamano_muro(clave):
             out = im.convert("RGB").resize(tamano_muro(clave), Image.LANCZOS)
         else:

@@ -41,6 +41,17 @@ dibujo animado oscuro y artesanal, sin copiar personajes ni recursos de otros ju
   no cuesta en cada fotograma; lo que cuenta es el peso de la página, y por eso se reducen las piezas
   a su tamaño final y a 256 colores.
 
+## Primera tanda integrada (22-10-2026)
+Comparado en el juego con capturas de antes y después:
+- **Entran**: tejas (3), asfalto, acera, empedrado, losas de plaza, banco, buganvilla, maceta, pilón,
+  papelera y farola. Las tejas dibujadas a mano son la mejora más visible. Unos 150 KB en total.
+- **Se quedan como estaban**: naranjo y olivo (los nuevos salían pálidos, como bonsáis en maceta, y se
+  leían peor en los parques), fachadas y edificios singulares (SDXL base los dibuja como bocetos de
+  arquitecto europeo, recargados y nada andaluces), estatua (no tenía los brazos abiertos), tierra,
+  campo y césped.
+- Siguiente intento para fachadas y edificios: dar al modelo una imagen de referencia del estilo
+  (IP-Adapter, Apache 2.0) con las láminas de Joaquín, en lugar de describirlo solo con palabras.
+
 ## Licencias
 - SDXL base 1.0: CreativeML Open RAIL++-M (uso comercial permitido, con restricciones de uso).
 - rembg + u2net: Apache 2.0. No usar el modelo «bria-rmbg» (no comercial).
