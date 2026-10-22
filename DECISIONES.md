@@ -32,6 +32,15 @@
 - Los minijuegos no se escalan con `transform`/`zoom` (rompería las coordenadas de arrastre): se estrecha
   la zona de juego hasta que la tarjeta cabe en alto.
 
+## Arte pintado de los minijuegos (22-10-2026)
+- Fondos en JPEG de 640 px y piezas en PNG de 256 colores: el juego pasa de 3,8 a 5,1 MB. Se acepta a cambio de que
+  nada parezca vectorial; si pesa en móviles, se puede bajar más la calidad de los fondos.
+- Las piezas se tiñen al integrarlas (el modelo las da casi en sepia por la lámina de referencia).
+- Se quedan en SVG: paquetes de tabaco (llevan el nombre de la marca), monedas y pastillas (las pintadas salieron mal),
+  el salabre y la estatua decapitada; la carne del kebab sigue siendo dibujo, ahora con volumen.
+- El vaso del cubata se pinta dos veces (semitransparente debajo y en multiplicar encima) para que el líquido se vea
+  dentro del cristal.
+
 ## Limitaciones conocidas
 - **Escala real desconocida.** No hay barra de escala legible; las distancias del juego no son metros.
 - **Edificios fuera de las manzanas cerradas**: el dibujo no los incluye, así que allí se ve campo.

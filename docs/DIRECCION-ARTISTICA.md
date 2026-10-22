@@ -69,3 +69,10 @@ Comparado en el juego con capturas de antes y después:
 - SDXL base 1.0: CreativeML Open RAIL++-M (uso comercial permitido, con restricciones de uso).
 - rembg + u2net: Apache 2.0. No usar el modelo «bria-rmbg» (no comercial).
 - Skill `game-art` (guía de principios): CC BY 4.0, de sickn33/agentic-awesome-skills.
+
+## Resultado de la segunda tanda (22-10-2026)
+- Entran: 14 fondos de minijuego y 16 piezas (ver `tools/integrar_mg.py`), y las fachadas del Cuartel (dos plantas con
+  puertas verdes) y de la Estación (arcos) en el mapa (`tools/kaggle/elecciones-misiones.json`).
+- No entran: textura de la peluquería (salió como mosaico roto), moneda (con cara), pastilla, cabeza de la estatua,
+  salabre y las fachadas del Ayuntamiento y la Iglesia (salieron como perfil de tejados con cielo). Para esas fachadas
+  hace falta otra tanda pidiendo «solo el muro, sin cielo ni tejado».

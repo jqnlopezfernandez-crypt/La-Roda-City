@@ -2,7 +2,15 @@
  * Dibujos (SVG con trazo de tinta) y fondos de canvas de los minijuegos de las misiones.
  * Los trazos "temblorosos" usan generadores con semilla: el resultado es siempre el mismo.
  */
+import { mgFondo, mgPieza, mgUrl } from "./pintadoMg";
 import { INK, ellipsePts, hatching, inkShape, inkStroke, rectPts, seededRng, shade, smoothPath, speckles, wobble } from "./svg";
+
+/** Viñeta suave sobre el fondo pintado: centra la mirada en el juego y oscurece los bordes. */
+const vineta = (w: number, h: number, id: string) =>
+  `<defs><radialGradient id="${id}" cx="0.5" cy="0.5" r="0.75"><stop offset="0.55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#0b0705" stop-opacity="0.6"/></radialGradient></defs><rect width="${w}" height="${h}" fill="url(#${id})" pointer-events="none"/>`;
+
+/** Hay ilustración pintada para esta escena (y para las piezas que la acompañan). */
+export const pintada = (clave: string) => mgUrl(clave) !== undefined;
 
 /** Envuelve el contenido en un <svg> de escena (clase mg-scene) que se ajusta al hueco. */
 const sceneSvg = (width: number, height: number, content: string, className = "") =>
@@ -10,6 +18,19 @@ const sceneSvg = (width: number, height: number, content: string, className = ""
 
 /** Rezar: estatua del Sagrado Corazón y una vela que se enciende (clases mg-halo, mg-glow, mg-flame). */
 export function prayScene(): string {
+  if (pintada("escena-rezar") && pintada("pieza-vela")) {
+    // Fondo pintado (la estatua del Sagrado al fondo) y la vela pintada delante, que se enciende
+    let p = '<defs><radialGradient id="halo"><stop offset="0" stop-color="#ffd98a" stop-opacity="0.9"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient></defs>';
+    p += mgFondo("escena-rezar", 360, 220) + vineta(360, 220, "vig-rezar");
+    p += '<rect class="mg-glow-sky" width="360" height="220" fill="#ffb347" opacity="0"/>';
+    p += '<circle class="mg-glow" cx="282" cy="118" r="78" fill="url(#halo)" opacity="0"/>';
+    p += `<ellipse cx="282" cy="214" rx="30" ry="5" fill="${INK}" opacity="0.45"/>`;
+    p += mgPieza("pieza-vela", 282, 168, 42, 92);
+    p += `<path d="M282 124 v-6" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`;
+    p += `<path class="mg-flame" style="transform-origin:282px 120px" d="M282 92 q11 14 0 28 q-11 -13 0 -28Z" fill="#ffb347" stroke="${INK}" stroke-width="1.6" opacity="0.15"/>`;
+    p += '<path class="mg-flame" style="transform-origin:282px 120px" d="M282 104 q5 7 0 14 q-5 -6 0 -14Z" fill="#fff2b0" opacity="0.15"/>';
+    return sceneSvg(360, 220, p, "mg-rezar-pintada");
+  }
   let svg =
     '<defs><radialGradient id="halo"><stop offset="0" stop-color="#ffd98a" stop-opacity="0.9"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient></defs>';
   svg += '<rect width="360" height="220" fill="#1f1a24"/>';
@@ -33,6 +54,16 @@ export function prayScene(): string {
 
 /** Lector de tarjetas del tren. */
 export function cardReaderScene(): string {
+  if (pintada("escena-tren")) {
+    let p = mgFondo("escena-tren", 360, 120) + vineta(360, 120, "vig-tren");
+    // Ranura del lector sobre la máquina pintada
+    p += inkShape(rectPts(14, 48, 332, 26), "#1f2226", { seed: 2, amp: 0.6, ink: 2.6 });
+    p += '<rect x="20" y="58" width="320" height="6" fill="#0d0f11"/>';
+    p += '<path d="M24 52 h310" stroke="#ffffff" stroke-opacity="0.15" stroke-width="2"/>';
+    p += inkShape(rectPts(258, 12, 84, 28), "#1d3a2a", { seed: 3, amp: 0.5, ink: 2.4 }) + '<text x="300" y="31" font-family="Nunito,sans-serif" font-size="12" font-weight="900" fill="#7fe0a0" text-anchor="middle">PASE</text>';
+    p += `<circle cx="30" cy="27" r="7" fill="#c4483f" stroke="${INK}" stroke-width="2"/><circle cx="52" cy="27" r="7" fill="#3a5a3a" stroke="${INK}" stroke-width="2" class="mg-led"/>`;
+    return sceneSvg(360, 120, p, "mg-reader");
+  }
   let svg = '<rect width="360" height="120" rx="14" fill="#3a3f45"/>';
   svg += inkShape(rectPts(6, 6, 348, 108), "#4c535a", { seed: 1, amp: 1, ink: 2.6 });
   svg += inkShape(rectPts(18, 50, 324, 22), "#1f2226", { seed: 2, amp: 0.6, ink: 2.4 });
@@ -57,6 +88,11 @@ export function trainCardSvg(): string {
 
 /** Portería con red, grada y campo (penaltis). */
 export function goalScene(): string {
+  if (pintada("escena-porteria")) {
+    let p = mgFondo("escena-porteria", 360, 230) + vineta(360, 230, "vig-gol");
+    p += '<ellipse cx="180" cy="214" rx="6" ry="2.6" fill="#f3ead6" stroke="#2a1c14" stroke-width="1"/>';
+    return sceneSvg(360, 230, p, "mg-pitch");
+  }
   let svg = '<rect width="360" height="230" fill="#4f8c45"/>';
   for (let i = 0; i < 6; i++) svg += `<rect x="0" y="${130 + i * 20}" width="360" height="10" fill="#5a9a4f"/>`;
   svg +=
@@ -160,6 +196,13 @@ export function coinSvg(cents: number): string {
 
 /** Mostrador del estanco con la caja registradora (el texto .mg-display muestra lo cobrado). */
 export function tillScene(): string {
+  if (pintada("escena-caja")) {
+    let p = mgFondo("escena-caja", 360, 90) + vineta(360, 90, "vig-caja");
+    p += inkShape(rectPts(232, 8, 106, 34), "#4a4f55", { seed: 4, amp: 0.8, ink: 2.6 });
+    p += inkShape(rectPts(242, 14, 86, 22), "#1d3a2a", { seed: 5, amp: 0.4, ink: 1.8 });
+    p += '<text class="mg-display" x="285" y="30" font-family="Nunito,sans-serif" font-size="13" font-weight="900" fill="#7fe0a0" text-anchor="middle">0,00 €</text>';
+    return sceneSvg(360, 90, p, "mg-counter");
+  }
   let svg = '<rect width="360" height="90" fill="#3a2a20"/>';
   svg += inkShape(rectPts(4, 30, 352, 56), "#6b4a2e", { seed: 2, amp: 1, ink: 2.6 });
   svg += hatching(8, 34, 344, 48, 9, INK, 0.25, 3);
@@ -176,6 +219,7 @@ export function tillScene(): string {
  * (rectángulos .mg-liquid-ron / .mg-liquid-cola, grupo .mg-ice, marcas) y las dos botellas.
  */
 export function barScene(): string {
+  if (pintada("escena-bar") && pintada("pieza-vaso") && pintada("pieza-botella-ron") && pintada("pieza-botella-cola")) return barScenePintada();
   let svg = '<rect width="360" height="240" fill="#2a2024"/>';
   svg +=
     inkShape(rectPts(10, 20, 340, 8), "#6b4a2e", { seed: 1, amp: 0.5, ink: 2 }) +
@@ -216,13 +260,54 @@ export function barScene(): string {
   return sceneSvg(360, 240, svg, "mg-bar-scene");
 }
 
+/**
+ * Barra pintada: el vaso pintado con el líquido dentro (recortado a la forma del vaso y
+ * multiplicado para que se vea a través del cristal) y las botellas pintadas, que se
+ * inclinan al servir. Mismas clases que la versión SVG: .mg-liquid-ron/-cola, .mg-ice,
+ * .mg-stream-*, .mg-mark-*, .mg-bottle-*. El fondo del vaso queda en y = 196.
+ */
+function barScenePintada(): string {
+  let s = mgFondo("escena-bar", 360, 240) + vineta(360, 240, "vig-bar");
+  // Barra de madera en primer plano, donde se apoyan vaso y botellas
+  s += `<rect x="0" y="194" width="360" height="46" fill="#4a2c18"/><rect x="0" y="194" width="360" height="6" fill="#7a4a28"/>`;
+  s += `<path d="M0 194 H360" stroke="${INK}" stroke-width="3"/><path d="M0 200 H360" stroke="${INK}" stroke-width="1.4" opacity="0.6"/>`;
+  s += hatching(4, 204, 352, 32, 12, INK, 0.25, 5);
+  // Cubitera con hielo a la izquierda
+  s += mgPieza("pieza-hielo", 40, 168, 30, 34) + mgPieza("pieza-hielo", 58, 172, 28, 32) + mgPieza("pieza-hielo", 48, 182, 30, 34);
+  // El vaso: 80×214 colocado para que el fondo interior (al 73 % del dibujo) quede en y = 196
+  const vaso = (extra: string) => mgPieza("pieza-vaso", 180, 147, 80, 214, extra);
+  s += '<defs><clipPath id="vaso-dentro"><path d="M144 48 L216 48 L209 196 L150 196Z"/></clipPath></defs>';
+  s += '<g class="mg-glass">';
+  s += vaso('class="mg-vaso" opacity="0.5"');
+  s += '<g clip-path="url(#vaso-dentro)" style="mix-blend-mode:multiply"><rect class="mg-liquid-cola" x="140" y="196" width="80" height="0" fill="#6a2a12"/><rect class="mg-liquid-ron" x="140" y="196" width="80" height="0" fill="#d88a28"/></g>';
+  s += '<g class="mg-ice"></g>';
+  s += '<path class="mg-stream mg-stream-ron" d="M167 64 Q169 130 172 196" stroke="#d88a28" stroke-width="5" fill="none" stroke-linecap="round"/>';
+  s += '<path class="mg-stream mg-stream-cola" d="M167 64 Q169 130 172 196" stroke="#5a2a14" stroke-width="6" fill="none" stroke-linecap="round"/>';
+  s += vaso('style="mix-blend-mode:multiply"');
+  // brillos del cristal
+  s += '<path d="M152 58 L156 186" stroke="#fff" stroke-opacity="0.55" stroke-width="4" stroke-linecap="round"/><path d="M162 60 L164 110" stroke="#fff" stroke-opacity="0.35" stroke-width="2.4" stroke-linecap="round"/>';
+  s += '<path class="mg-mark mg-mark-ron" d="M138 170 h12" stroke="#ffd166" stroke-width="3.4" stroke-linecap="round"/><path class="mg-mark mg-mark-cola" d="M138 112 h12" stroke="#ffd166" stroke-width="3.4" stroke-linecap="round"/></g>';
+  // Botellas de ron y de cola
+  s += `<g class="mg-bottle-ron">${mgPieza("pieza-botella-ron", 276, 141, 30, 112)}</g>`;
+  s += `<g class="mg-bottle-cola">${mgPieza("pieza-botella-cola", 322, 141, 30, 110)}</g>`;
+  return sceneSvg(360, 240, s, "mg-bar-scene mg-bar-pintada");
+}
+
 /** Un cubito de hielo (se añade dentro de .mg-ice). */
 export function iceCubeShape(x: number, y: number, seed: number): string {
+  if (pintada("pieza-hielo")) return `<g class="mg-cubito" style="--r:${(seed % 7) * 9 - 27}deg">${mgPieza("pieza-hielo", x + 9, y + 9, 22, 25)}</g>`;
   return inkShape(rectPts(x, y, 16, 15), "#e6f2f6", { seed, amp: 1.2, ink: 1.6, opacity: 0.85 });
 }
 
 /** Barra del bar con el cliente al fondo (deslizar el cubata). */
 export function barCounterScene(): string {
+  if (pintada("escena-barra")) {
+    let p = mgFondo("escena-barra", 360, 120) + vineta(360, 120, "vig-barra");
+    p += `<rect x="0" y="62" width="360" height="58" fill="#4a2c18" opacity="0.92"/><path d="M0 62 H360" stroke="${INK}" stroke-width="3"/>`;
+    p += hatching(4, 68, 352, 48, 12, INK, 0.25, 5);
+    p += '<path d="M300 66 h44" stroke="#ffd166" stroke-width="3" stroke-dasharray="5 4"/>';
+    return sceneSvg(360, 120, p, "mg-reader");
+  }
   let svg = '<rect width="360" height="120" fill="#2a2024"/>';
   svg += inkShape(rectPts(0, 60, 360, 60), "#5e3a22", { seed: 3, amp: 1, ink: 2.6 }) + hatching(4, 64, 352, 52, 10, INK, 0.25, 5);
   svg += inkShape([[330, 66], [352, 66], [356, 20], [326, 20]], "#3d5f8c", { seed: 6, amp: 0.6, ink: 2.4 });
@@ -232,12 +317,15 @@ export function barCounterScene(): string {
 }
 
 /** Vaso de cubata (la "tarjeta" que se desliza por la barra). */
+export const cubataGlassUrl = () => mgUrl("pieza-cubata");
+export const trainCardUrl = () => mgUrl("pieza-tarjeta");
 export function cubataGlassSvg(): string {
   return `<svg viewBox="0 0 50 70" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="22" width="30" height="44" fill="#5a2a14"/><rect x="13" y="16" width="10" height="9" fill="#e6f2f6" stroke="${INK}" stroke-width="1"/><rect x="24" y="20" width="10" height="9" fill="#e6f2f6" stroke="${INK}" stroke-width="1"/><path d="M6 6 L44 6 L41 68 L9 68Z" fill="#dfeef2" fill-opacity="0.2" stroke="${INK}" stroke-width="2.4"/><path d="M32 2 L28 30" stroke="#c4483f" stroke-width="3"/><circle cx="16" cy="10" r="5" fill="#e8d24a" stroke="${INK}" stroke-width="1.4"/></svg>`;
 }
 
 /** Estanque del Parque Europa. */
 export function pondScene(): string {
+  if (pintada("escena-estanque")) return sceneSvg(360, 210, mgFondo("escena-estanque", 360, 210) + vineta(360, 210, "vig-est"), "mg-pond-scene");
   let svg = '<rect width="360" height="210" fill="#4f7536"/>' + speckles(0, 0, 360, 210, 12, ["#5f8a3e", "#45692f"], 20, 50, 0.7, 3);
   svg += `<path d="${smoothPath(wobble(ellipsePts(180, 105, 168, 92, 20), 4, 2))}" fill="#a99a7e" stroke="${INK}" stroke-width="3"/>`;
   svg += `<path d="${smoothPath(wobble(ellipsePts(180, 105, 152, 80, 20), 3, 3))}" fill="#2f6f86" stroke="${INK}" stroke-width="2.4"/>`;
@@ -254,6 +342,13 @@ export function fishSvg(color: string): string {
 
 /** Pista de baloncesto con canasta y balón (clases mg-bball / mg-bball-l). */
 export function courtScene(): string {
+  if (pintada("escena-canasta") && pintada("pieza-balon-basket")) {
+    let p = mgFondo("escena-canasta", 360, 200) + vineta(360, 200, "vig-canasta");
+    // el balón (mismo sitio y clases que en el dibujo SVG para la animación del tiro)
+    p += `<ellipse cx="70" cy="166" rx="14" ry="3.5" fill="${INK}" opacity="0.4"/>`;
+    p += `<g class="mg-bball">${mgPieza("pieza-balon-basket", 70, 150, 30, 30)}</g>`;
+    return sceneSvg(360, 200, p, "mg-court mg-court-pintada");
+  }
   let svg = '<rect width="360" height="200" fill="#3a4a5a"/>' + speckles(0, 0, 360, 120, 8, ["#41546a", "#33424f"], 30, 60, 0.6, 3);
   svg += '<rect y="150" width="360" height="50" fill="#b85f38"/><path d="M0 160 h360" stroke="#f3ead6" stroke-width="3"/>';
   svg += inkShape(rectPts(172, 60, 10, 100), "#5a5550", { seed: 1, amp: 0.4, ink: 2.4 });
@@ -280,7 +375,48 @@ export function drawSalonFloor(g: CanvasRenderingContext2D, width: number, heigh
 }
 
 /** Plato sobre el fregadero, en un canvas. */
-export function drawPlate(g: CanvasRenderingContext2D, width: number, height: number): void {
+/** Imágenes pintadas para los minijuegos de canvas (se cargan una vez; mientras tanto, el dibujo de siempre). */
+const lienzoPintado = new Map<string, HTMLImageElement>();
+export function imagenPintada(clave: string, onLoad?: () => void): HTMLImageElement | undefined {
+  const url = mgUrl(clave);
+  if (!url) return undefined;
+  let im = lienzoPintado.get(clave);
+  if (!im) {
+    im = new Image();
+    im.src = url;
+    lienzoPintado.set(clave, im);
+  }
+  if (!im.complete && onLoad) im.addEventListener("load", onLoad, { once: true });
+  return im.complete && im.naturalWidth ? im : undefined;
+}
+
+export function drawPlate(g: CanvasRenderingContext2D, width: number, height: number, onLoad?: () => void, limpio = 0): void {
+  const fondo = imagenPintada("escena-fregadero", onLoad);
+  const plato = imagenPintada("pieza-plato", onLoad);
+  if (fondo && plato) {
+    // fregadero pintado (recortado para llenar) y el plato pintado encima, con su sombra
+    const k = Math.max(width / fondo.naturalWidth, height / fondo.naturalHeight);
+    g.drawImage(fondo, (width - fondo.naturalWidth * k) / 2, (height - fondo.naturalHeight * k) / 2, fondo.naturalWidth * k, fondo.naturalHeight * k);
+    g.fillStyle = "rgba(20,12,8,0.45)";
+    g.beginPath();
+    g.ellipse(width / 2 + 3, height / 2 + 6, 104, 94, 0, 0, Math.PI * 2);
+    g.fill();
+    const lado = 212;
+    g.drawImage(plato, width / 2 - lado / 2, height / 2 - lado / 2, lado, lado);
+    // los restos de comida pintados se van quitando a la vez que la salsa
+    if (limpio > 0) {
+      const fondoPlato = g.createRadialGradient(width / 2 - 10, height / 2 - 10, 4, width / 2, height / 2, 62);
+      fondoPlato.addColorStop(0, "#fbf5e6");
+      fondoPlato.addColorStop(1, "#e2d6b8");
+      g.globalAlpha = Math.min(1, limpio * 1.15);
+      g.fillStyle = fondoPlato;
+      g.beginPath();
+      g.ellipse(width / 2, height / 2, 60, 56, 0, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 1;
+    }
+    return;
+  }
   // Fregadero
   g.fillStyle = "#8a959c";
   g.fillRect(0, 0, width, height);
@@ -315,6 +451,7 @@ export function drawPlate(g: CanvasRenderingContext2D, width: number, height: nu
 
 /** Bandeja de la farmacia para contar pastillas. */
 export function pillTrayScene(): string {
+  if (pintada("escena-farmacia")) return sceneSvg(360, 170, mgFondo("escena-farmacia", 360, 170) + vineta(360, 170, "vig-farm"), "mg-tray");
   let svg = '<rect width="360" height="170" rx="16" fill="#2f6f5e"/>';
   svg += inkShape(rectPts(8, 8, 344, 154), "#3f8a74", { seed: 1, amp: 1, ink: 2.6 });
   svg += hatching(12, 12, 336, 146, 14, "#2a1c14", 0.12, 2);
@@ -333,11 +470,21 @@ export function pillSvg(index: number): string {
 
 /** Asador de kebab con la carne (grupo .mg-meat, que se encoge al cortar). */
 export function kebabScene(): string {
-  let svg = '<rect width="360" height="230" fill="#3a2a20"/>';
-  // Resistencias del asador
-  svg += inkShape(rectPts(250, 10, 90, 210), "#8a3a26", { seed: 1, amp: 1, ink: 2.6 });
-  for (let i = 0; i < 8; i++) {
-    svg += `<rect x="262" y="${24 + i * 24}" width="66" height="10" rx="5" fill="#ff8a3a" opacity="${0.5 + (i % 2) * 0.3}"/>`;
+  let svg: string;
+  if (pintada("escena-kebab")) {
+    // Fondo pintado del local; el asador va delante con su resplandor
+    svg = mgFondo("escena-kebab", 360, 230) + vineta(360, 230, "vig-kebab");
+    svg += '<defs><radialGradient id="brasa"><stop offset="0" stop-color="#ff8a3a" stop-opacity="0.75"/><stop offset="1" stop-color="#ff8a3a" stop-opacity="0"/></radialGradient></defs>';
+    svg += '<ellipse class="mg-brasa" cx="250" cy="115" rx="120" ry="130" fill="url(#brasa)"/>';
+    svg += inkShape(rectPts(262, 10, 70, 210), "#5a2a1a", { seed: 1, amp: 1, ink: 2.6 });
+    for (let i = 0; i < 8; i++) svg += `<rect class="mg-resist" x="272" y="${24 + i * 24}" width="50" height="10" rx="5" fill="#ff8a3a" style="animation-delay:${-i * 0.27}s"/>`;
+  } else {
+    svg = '<rect width="360" height="230" fill="#3a2a20"/>';
+    // Resistencias del asador
+    svg += inkShape(rectPts(250, 10, 90, 210), "#8a3a26", { seed: 1, amp: 1, ink: 2.6 });
+    for (let i = 0; i < 8; i++) {
+      svg += `<rect x="262" y="${24 + i * 24}" width="66" height="10" rx="5" fill="#ff8a3a" opacity="${0.5 + (i % 2) * 0.3}"/>`;
+    }
   }
   // Espetón
   svg += inkShape(rectPts(176, 4, 8, 222), "#9aa3a8", { seed: 2, amp: 0.3, ink: 2 });
@@ -354,6 +501,11 @@ export function kebabScene(): string {
     );
     meat += inkStroke([[180 - halfWidth + 8, y + 9], [180 + halfWidth * 0.6, y + 11]], 1.6, "#c98a4e", 20 + i, 1.2, 0.8);
   }
+  // Volumen: sombra cilíndrica, brillo de grasa y tostado (el asador es redondo, no una pila de tablas)
+  meat +=
+    '<defs><linearGradient id="carne-vol" x1="0" x2="1"><stop offset="0" stop-color="#2a1208" stop-opacity="0.75"/><stop offset="0.35" stop-color="#2a1208" stop-opacity="0"/><stop offset="0.55" stop-color="#ffd49a" stop-opacity="0.35"/><stop offset="0.7" stop-color="#2a1208" stop-opacity="0"/><stop offset="1" stop-color="#2a1208" stop-opacity="0.8"/></linearGradient></defs>';
+  meat += '<path d="M110 22 L243 22 L238 202 L122 202Z" fill="url(#carne-vol)" style="mix-blend-mode:multiply" opacity="0.9"/>';
+  meat += speckles(116, 26, 120, 172, 46, ["#3a1a0c", "#5a2a14", "#e0a060"], 1.2, 3.4, 0.85, 61);
   svg += `<g class="mg-meat">${meat}</g>`;
   // Bandeja
   svg += inkShape(rectPts(110, 206, 140, 14), "#9aa3a8", { seed: 3, amp: 0.4, ink: 2.2 });

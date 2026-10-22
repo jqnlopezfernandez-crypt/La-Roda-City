@@ -29,6 +29,7 @@ import {
   trainCardSvg,
 } from "../art/minigames";
 import { floodScene, headlessStatueScene, netSvg, poolScene, poopSvg, sandbagSvg, statueHeadSvg } from "../art/sabotages";
+import { mgImg, mgUrl } from "../art/pintadoMg";
 
 interface MiniGameContext {
   body: HTMLElement;
@@ -96,7 +97,7 @@ function holdGame({ body, done, say, missionId }: MiniGameContext, ms: number) {
 /** Deslizar a velocidad constante: la tarjeta del tren por el lector, o el cubata por la barra. */
 function swipeGame({ body, done, say, missionId }: MiniGameContext) {
   const isDrink = missionId === "cubata";
-  body.innerHTML = `<div class="mg-slot ${isDrink ? "mg-slot-bar" : ""}">${isDrink ? barCounterScene() : cardReaderScene()}<div class="mg-card">${svgImg(isDrink ? cubataGlassSvg() : trainCardSvg())}</div></div>`;
+  body.innerHTML = `<div class="mg-slot ${isDrink ? "mg-slot-bar" : ""}">${isDrink ? barCounterScene() : cardReaderScene()}<div class="mg-card">${isDrink ? mgImg("pieza-cubata", cubataGlassSvg) : mgImg("pieza-tarjeta", trainCardSvg)}</div></div>`;
   const slot = body.querySelector<HTMLElement>(".mg-slot")!;
   const card = body.querySelector<HTMLElement>(".mg-card")!;
   let startedAt = 0;
@@ -153,7 +154,7 @@ function rubGame({ body, done, say }: MiniGameContext, kind: "plato" | "pelo") {
 
   const draw = () => {
     g.clearRect(0, 0, width, height);
-    if (kind === "plato") drawPlate(g, width, height);
+    if (kind === "plato") drawPlate(g, width, height, draw, 1 - spots.reduce((t, spot) => t + Math.max(0, spot.left), 0) / spots.length);
     else drawSalonFloor(g, width, height);
     for (const spot of spots) {
       if (spot.left <= 0) continue;
@@ -261,7 +262,12 @@ function rubGame({ body, done, say }: MiniGameContext, kind: "plato" | "pelo") {
 function feedFishGame({ body, done, say }: MiniGameContext) {
   const fishColors = ["#f08a24", "#f3ead6", "#e2521f", "#f2c230"];
   body.innerHTML = `<div class="mg-pond">${pondScene()}${fishColors
-    .map((color, i) => svgImg(fishSvg(color), "mg-fish", `left:${20 + i * 17}%;top:${35 + (i % 2) * 22}%;animation-delay:${-i * 1.3}s`))
+    .map((color, i) =>
+      mgUrl("pieza-pez")
+        ? // pez pintado: cada uno con su color (giro de tono) y su ritmo
+          mgImg("pieza-pez", () => fishSvg(color), "mg-fish mg-fish-pintado", `left:${20 + i * 17}%;top:${35 + (i % 2) * 22}%;animation-delay:${-i * 1.3}s;--tono:${[0, 35, -18, 160][i]}deg`)
+        : svgImg(fishSvg(color), "mg-fish", `left:${20 + i * 17}%;top:${35 + (i % 2) * 22}%;animation-delay:${-i * 1.3}s`),
+    )
     .join("")}</div>`;
   const pond = body.querySelector<HTMLElement>(".mg-pond")!;
   const fishes = [...pond.querySelectorAll<HTMLElement>(".mg-fish")];
@@ -323,7 +329,7 @@ function throwGame({ body, done, say }: MiniGameContext) {
 
 /** Penaltis: marcar 3 goles tirando lejos de donde está el portero. */
 function penaltyGame({ body, done, say }: MiniGameContext) {
-  body.innerHTML = `<div class="mg-goal" data-k="0.5">${goalScene()}${svgImg(goalkeeperSvg(), "mg-keeper")}${svgImg(footballSvg(), "mg-ball")}
+  body.innerHTML = `<div class="mg-goal" data-k="0.5">${goalScene()}${mgImg("pieza-portero", goalkeeperSvg, "mg-keeper")}${mgImg("pieza-balon-futbol", footballSvg, "mg-ball")}
     <div class="mg-zones"><button data-z="0.17" aria-label="Tirar a la izquierda"></button><button data-z="0.5" aria-label="Tirar al centro"></button><button data-z="0.83" aria-label="Tirar a la derecha"></button></div></div>
     <div class="mg-score">Goles: 0/3</div>`;
   const goal = body.querySelector<HTMLElement>(".mg-goal")!;
@@ -390,7 +396,7 @@ function tobaccoShopGame({ body, done, say }: MiniGameContext) {
   const price = 450 + 10 * Math.floor(Math.random() * 16);
   const euros = (cents: number) => (cents / 100).toFixed(2).replace(".", ",") + " €";
   body.innerHTML = `<div class="mg-ask"><span class="mg-bubble">${svgImg(tobaccoPackSvg(wanted, 99, true))}<span>\xABUn paquete de <b>${wanted.name}</b>, por favor\xBB</span></span></div>
-    <div class="mg-shelf">${shelf.map((brand, i) => `<button class="mg-pack" data-o="${brand.name}" aria-label="${brand.name}">${svgImg(tobaccoPackSvg(brand, i * 7, i % 3 === 1))}</button>`).join("")}</div>`;
+    <div class="mg-shelf${mgUrl("escena-estanco") ? " mg-shelf-pintado" : ""}" style="${mgUrl("escena-estanco") ? `--fondo:url(${mgUrl("escena-estanco")})` : ""}">${shelf.map((brand, i) => `<button class="mg-pack" data-o="${brand.name}" aria-label="${brand.name}">${svgImg(tobaccoPackSvg(brand, i * 7, i % 3 === 1))}</button>`).join("")}</div>`;
   body.querySelectorAll<HTMLElement>("[data-o]").forEach((pack) =>
     pack.addEventListener("click", () => {
       if (pack.dataset.o !== wanted.name) {
@@ -446,7 +452,7 @@ function countPillsGame({ body, done, say }: MiniGameContext) {
 
 /** Cortar el kebab: 4 tajos de arriba abajo. */
 function cutKebabGame({ body, done, say }: MiniGameContext) {
-  body.innerHTML = `<div class="mg-kebab">${kebabScene()}${svgImg(knifeSvg(), "mg-knife")}<span>0/4</span></div>`;
+  body.innerHTML = `<div class="mg-kebab">${kebabScene()}${mgImg("pieza-cuchillo", knifeSvg, "mg-knife")}<span>0/4</span></div>`;
   const scene = body.querySelector<HTMLElement>(".mg-kebab")!;
   const counter = scene.querySelector<HTMLElement>("span")!;
   const knife = scene.querySelector<HTMLElement>(".mg-knife")!;
@@ -600,10 +606,10 @@ function dragStage(body: HTMLElement, scene: string, W: number, H: number) {
     return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
   };
   /** Pieza: imagen centrada en (x, y) con ancho w (todo en unidades de la escena). */
-  const piece = (svg: string, x: number, y: number, w: number, className = "") => {
+  const piece = (svg: string, x: number, y: number, w: number, className = "", pintada?: string) => {
     const el = document.createElement("div");
     el.className = `mg-piece ${className}`;
-    el.innerHTML = svgImg(svg);
+    el.innerHTML = pintada && mgUrl(pintada) ? mgImg(pintada, () => svg) : svgImg(svg);
     el.style.width = `${(w / W) * 100}%`;
     const place = (px: number, py: number) => {
       el.style.left = `${(px / W) * 100}%`;
@@ -673,12 +679,12 @@ function poolPoopGame({ body, done, say }: MiniGameContext) {
   const poops = Array.from({ length: 5 }, (_, i) => {
     const x = randRange(70, 290);
     const y = randRange(55, 195);
-    const p = piece(poopSvg(i * 7 + 3), x, y, 40, "mg-poop");
+    const p = piece(poopSvg(i * 7 + 3), x, y, 40, "mg-poop", "pieza-caca");
     p.el.style.animationDelay = `${-Math.random() * 3}s`;
     return { ...p, x, y, out: false };
   });
   const home = { x: 318, y: 214 };
-  const net = piece(netSvg(), home.x, home.y, 92, "mg-net");
+  const net = piece(netSvg(), home.x, home.y, 92, "mg-net", undefined);
   let left = poops.length;
   say(`Pesca las ${left} cacas con el salabre`);
   // El puntero lleva el aro (no el centro del dibujo): el aro está arriba a la izquierda
@@ -714,7 +720,7 @@ function sandbagGame({ body, done, say }: MiniGameContext) {
   say("Tapona las brechas del puente con los sacos");
   [0, 1, 2].forEach((i) => {
     const home = { x: 30 + i * 6, y: 176 + i * 22 };
-    const bag = piece(sandbagSvg(i * 11 + 5), home.x, home.y, 50, "mg-bag");
+    const bag = piece(sandbagSvg(i * 11 + 5), home.x, home.y, 54, "mg-bag", "pieza-saco");
     draggable(bag, home, (x, y) => {
       const k = gaps.findIndex((g) => !g.full && Math.hypot(g.x - x, g.y - y) < 34);
       if (k < 0) return false;

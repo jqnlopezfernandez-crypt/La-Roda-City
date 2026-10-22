@@ -3,6 +3,7 @@
  * cacas en la piscina y riada en el Puente Erillas. Tinta temblorosa, rayados y manchas
  * para el aire artesano del resto del juego (nada de formas planas).
  */
+import { mgFondo, mgPieza, mgUrl } from "./pintadoMg";
 import { INK, ellipsePts, hatching, inkShape, inkStroke, jitterLine, linearGradient, radialGradient, rectPts, seededRng, smoothPath, speckles, wobble, type Point } from "./svg";
 
 const sceneSvg = (width: number, height: number, content: string, className = "") =>
@@ -117,6 +118,21 @@ export const statueHeadSvg = () => spriteSvg(64, 64, statueHeadArt());
 export function poolScene(withPoops = false): string {
   const W = 360;
   const H = 250;
+  if (mgUrl("escena-piscina")) {
+    // Piscina pintada; reflejos que se mueven encima del agua
+    let p = mgFondo("escena-piscina", W, H);
+    p += `<g class="mg-causticas" opacity="0.5">`;
+    const rr = seededRng(54);
+    for (let i = 0; i < 14; i++) {
+      const x = 90 + rr() * 200;
+      const y = 70 + rr() * 120;
+      p += `<path d="${smoothPath(wobble([[x, y], [x + 14, y - 4], [x + 26, y + 2]], 2, i + 60, false), false)}" stroke="#d6f6ff" stroke-width="1.8" fill="none" style="animation-delay:${(-rr() * 3).toFixed(2)}s"/>`;
+    }
+    p += `</g>`;
+    if (withPoops) for (const [x, y] of [[150, 100], [210, 140], [250, 90], [180, 170]]) p += mgPieza("pieza-caca", x, y, 34, 30);
+    p += vignette(W, H, "vig-pis");
+    return sceneSvg(W, H, p, "mg-piscina");
+  }
   let s = `<defs>${linearGradient("agua-pis", [[0, "#3fb6dc", 1], [1, "#1f7fa8", 1]])}</defs>`;
   // Playa de losas
   s += `<rect width="${W}" height="${H}" fill="#d8ccb1"/>`;
@@ -179,6 +195,7 @@ export function netSvg(): string {
 export function floodScene(): string {
   const W = 360;
   const H = 260;
+  if (mgUrl("escena-riada")) return floodScenePintada(W, H);
   let s = `<defs>${linearGradient("cielo-riada", [[0, "#1d2a33", 1], [1, "#46545a", 1]])}${linearGradient("agua-riada", [[0, "#5a7d86", 1], [1, "#2c4a54", 1]])}</defs>`;
   s += `<rect width="${W}" height="${H}" fill="url(#cielo-riada)"/>`;
   // Nubes de tormenta
@@ -215,6 +232,35 @@ export function floodScene(): string {
     rain += `M${x.toFixed(1)} ${y.toFixed(1)} l-4 12 `;
   }
   s += `<path d="${rain}" stroke="#cfe3e6" stroke-width="1" opacity="0.45"/>`;
+  s += vignette(W, H, "vig-riada");
+  return sceneSvg(W, H, s, "mg-riada");
+}
+
+/** Riada sobre el fondo pintado del río: el puente con sus brechas va delante. Mismas clases que la versión SVG. */
+function floodScenePintada(W: number, H: number): string {
+  let s = mgFondo("escena-riada", W, H);
+  s += `<rect width="${W}" height="${H}" fill="#1d2a33" opacity="0.25"/>`;
+  s += `<path d="M250 18 l-12 26 h10 l-8 22" class="mg-rayo" stroke="#f3ead6" stroke-width="2.4" fill="none" opacity="0"/>`;
+  // Río crecido (baja al poner sacos): agua turbia translúcida sobre el río pintado
+  s += `<g class="mg-water" opacity="0.7"><path d="${smoothPath(wobble([[0, 160], [90, 150], [180, 154], [270, 148], [360, 158], [360, 262], [0, 262]], 3, 74))}" fill="#4f6d72" stroke="${INK}" stroke-width="2"/>`;
+  for (let i = 0; i < 9; i++) s += inkStroke([[20 + i * 38, 172 + (i % 3) * 22], [42 + i * 38, 168 + (i % 3) * 22]], 2, "#cfe3e6", 80 + i, 1.4, 0.7);
+  s += `</g>`;
+  // Puente de piedra (tablero, arcos y sillares)
+  s += inkShape([[44, 120], [316, 120], [316, 138], [44, 138]], "#b5a383", { seed: 75, amp: 1, ink: 2.8 });
+  for (const cx of [110, 250]) {
+    s += inkShape([[cx - 50, 138], [cx + 50, 138], [cx + 50, 220], [cx + 34, 220], [cx + 34, 186], [cx + 20, 162], [cx, 156], [cx - 20, 162], [cx - 34, 186], [cx - 34, 220], [cx - 50, 220]], "#c2b090", { seed: 76 + cx, amp: 1, ink: 2.8 });
+    s += hatching(cx - 48, 140, 14, 78, 5, INK, 0.3, cx);
+  }
+  for (let y = 142; y < 220; y += 12) for (let x = 64 + ((y / 12) % 2) * 10; x < 300; x += 22) s += `<path d="M${x} ${y} h18" stroke="#7d6f58" stroke-width="1" opacity="0.6"/>`;
+  s += inkShape([[44, 104], [316, 104], [316, 120], [44, 120]], "#d2c2a0", { seed: 77, amp: 0.8, ink: 2.6 });
+  for (const x of [96, 180, 264]) {
+    s += `<rect class="mg-gap" x="${x - 20}" y="100" width="40" height="22" fill="#2c4a54" stroke="${INK}" stroke-width="2"/>`;
+    s += `<path class="mg-gush" d="M${x - 14} 122 q4 22 -6 40 M${x} 122 q2 26 0 46 M${x + 14} 122 q-2 22 6 40" stroke="#cfe3e6" stroke-width="3" fill="none" opacity="0.85"/>`;
+  }
+  const rng = seededRng(90);
+  let rain = "";
+  for (let i = 0; i < 60; i++) rain += `M${(rng() * W).toFixed(1)} ${(rng() * H).toFixed(1)} l-4 12 `;
+  s += `<path class="mg-lluvia" d="${rain}" stroke="#cfe3e6" stroke-width="1" opacity="0.4"/>`;
   s += vignette(W, H, "vig-riada");
   return sceneSvg(W, H, s, "mg-riada");
 }

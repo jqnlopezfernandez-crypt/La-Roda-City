@@ -83,6 +83,17 @@ Página jugable (sin servidor, modo en solitario): artifact "La Roda City" — s
 - ✅ Cabeza del Sagrado a tamaño real y estatua sin cabeza durante el sabotaje; quitadas Casa Empresa y
   Casa Pelosblancos; Maskom casi en la esquina del Sagrado (posición aproximada, por indicación de Joaquín).
 
+### Arte pintado de misiones y edificios (22-10-2026) ✅
+- Segunda tanda en Kaggle con las láminas de Joaquín como estilo (IP-Adapter): 14 fondos de minijuego y 19 piezas.
+- Integradas con `python3 tools/integrar_mg.py <carpeta>` (coloreadas, 640 px / 256 colores, ~880 KB) y
+  `src/art/pintadoMg.ts`; el SVG queda de reserva si falta una imagen.
+- Minijuegos con fondo pintado: rezar, tren, cubata (barra y vaso), platos, estanque, canasta, penaltis, estanco,
+  caja, farmacia, kebab, piscina y riada. Piezas pintadas: vaso, botellas, hielo, cubata, tarjeta, peces, balones,
+  portero, cuchillo, plato, cacas y sacos. Animaciones nuevas: hielo que cae, botellas que se inclinan y chorro,
+  resistencias del asador, reflejos de la piscina, lluvia y relámpago en la riada, restos del plato que se van.
+- Probado: `tests/e2e/minijuegos.mjs` 18/18 OK (vertical y horizontal); capturas con `tests/e2e/capturas-minijuegos.mjs`.
+- Fachadas pintadas del Cuartel y la Estación en el mapa. Ayuntamiento e Iglesia salieron con cielo/tejados: otra tanda.
+
 ## Fase 7 — Publicación 🟡 preparada · ⛔ despliegue (necesita cuentas)
 - ✅ `.github/workflows/pages.yml` (cliente → GitHub Pages con `VITE_SERVER_URL`), `Dockerfile`,
   `render.yaml`, `/salud`, `package-lock.json` del PC (incluye dependencias de Linux).

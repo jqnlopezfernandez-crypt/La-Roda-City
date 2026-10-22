@@ -1224,3 +1224,37 @@ canvas {
 }
 @keyframes mg-done { from { transform:translate(-50%,-50%) rotate(-8deg) scale(3); opacity:0 } }
 @media (prefers-reduced-motion:reduce) { .mg-done { animation:none } }
+
+/* ---- Minijuegos con ilustración pintada (src/art/pintadoMg.ts) ---- */
+.mg-fish-pintado { filter:hue-rotate(var(--tono, 0deg)) drop-shadow(0 6px 4px rgba(10,30,20,.45)); transform-origin:center }
+.mg-pond .mg-fish-pintado { width:17% }
+.mg-cubito { transform-box:fill-box; transform-origin:center; animation:mg-cubito .55s cubic-bezier(.3,1.5,.5,1) both }
+@keyframes mg-cubito { 0% { transform:translateY(-150px) rotate(calc(var(--r) * 3)); opacity:0 } 25% { opacity:1 } 100% { transform:rotate(var(--r)) } }
+.mg-bar-pintada .mg-bottle-ron, .mg-bar-pintada .mg-bottle-cola { filter:drop-shadow(0 6px 4px rgba(0,0,0,.45)) }
+.mg-cubata.vertiendo-ron .mg-bar-pintada .mg-bottle-ron { transform:translate(-62px,-104px) rotate(-118deg) }
+.mg-cubata.vertiendo-cola .mg-bar-pintada .mg-bottle-cola { transform:translate(-108px,-104px) rotate(-118deg) }
+.mg-cubata .mg-bar-pintada .mg-stream { stroke-dasharray:8 6; animation:mg-chorro-v .3s linear infinite }
+@keyframes mg-chorro-v { to { stroke-dashoffset:-14 } }
+.mg-shelf-pintado { position:relative; border-radius:14px; padding:14px 6px !important; background:linear-gradient(rgba(20,12,8,.45),rgba(20,12,8,.25)), var(--fondo) center/cover; box-shadow:inset 0 0 0 1px var(--line), 0 10px 24px #00000059 }
+.mg-shelf-pintado .mg-pack img { filter:drop-shadow(0 5px 4px rgba(0,0,0,.55)) }
+.mg-kebab .mg-resist { animation:mg-resist 1.6s ease-in-out infinite alternate }
+@keyframes mg-resist { from { opacity:.55 } to { opacity:1; fill:#ffb35a } }
+.mg-kebab .mg-brasa { animation:mg-brasa 2.2s ease-in-out infinite alternate; transform-box:fill-box; transform-origin:center }
+@keyframes mg-brasa { to { opacity:.7; transform:scale(1.04) } }
+.mg-kebab .mg-knife { width:7% }
+.mg-court-wrap.tiro .mg-court-pintada .mg-bball { animation-name:mg-tiro-p }
+.mg-court-wrap.fallo .mg-court-pintada .mg-bball { animation-name:mg-fallo-p }
+@keyframes mg-tiro-p { 0% { transform:none } 50% { transform:translate(40px,-150px) rotate(200deg) } 100% { transform:translate(86px,-118px) rotate(320deg) scale(.7) } }
+@keyframes mg-fallo-p { 0% { transform:none } 50% { transform:translate(60px,-150px) rotate(200deg) } 100% { transform:translate(150px,-60px) rotate(400deg) scale(.8) } }
+.mg-goal .mg-keeper { filter:drop-shadow(0 6px 5px rgba(0,0,0,.4)) }
+.mg-goal .mg-ball { filter:drop-shadow(0 4px 3px rgba(0,0,0,.45)) }
+.mg-piscina .mg-causticas path { animation:mg-causticas 3s ease-in-out infinite alternate }
+@keyframes mg-causticas { from { opacity:.2; transform:translate(-3px,1px) } to { opacity:1; transform:translate(3px,-1px) } }
+.mg-riada .mg-lluvia { animation:mg-lluvia .5s linear infinite }
+@keyframes mg-lluvia { from { transform:translate(0,-12px) } to { transform:translate(-4px,0) } }
+.mg-riada .mg-rayo { animation:mg-rayo 5s steps(1) infinite }
+@keyframes mg-rayo { 0%, 100% { opacity:0 } 70% { opacity:.9 } 72% { opacity:0 } 74% { opacity:.7 } 76% { opacity:0 } }
+.mg-rezar-pintada .mg-glow-sky { opacity:calc(var(--k, 0) * .18) }
+@media (prefers-reduced-motion:reduce) {
+  .mg-cubito, .mg-kebab .mg-resist, .mg-kebab .mg-brasa, .mg-piscina .mg-causticas path, .mg-riada .mg-lluvia, .mg-riada .mg-rayo, .mg-cubata .mg-bar-pintada .mg-stream { animation:none }
+}

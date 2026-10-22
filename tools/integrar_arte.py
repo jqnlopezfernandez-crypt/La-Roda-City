@@ -147,7 +147,7 @@ def main(carpeta, elecciones):
             lado = TEXTURAS[clave]
             out = entonar(im.convert("RGB").resize((lado, lado), Image.LANCZOS), 1.25, 1.1, 0.92)
         elif tamano_muro(clave):
-            out = im.convert("RGB").resize(tamano_muro(clave), Image.LANCZOS)
+            out = entonar(im.convert("RGB").resize(tamano_muro(clave), Image.LANCZOS), 1.45, 1.1, 0.95)
         else:
             print("clave desconocida, se salta:", clave)
             continue

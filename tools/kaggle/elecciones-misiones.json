@@ -1,0 +1,6 @@
+{
+  "edificio-cuartel-largo": "edificio-cuartel-largo__1037.png",
+  "edificio-cuartel-corto": {"img": "edificio-cuartel-largo__1037.png", "recorte": [0.3, 0, 0.68, 1]},
+  "edificio-estacion-largo": {"img": "edificio-estacion-largo__1037.png", "recorte": [0.17, 0.5, 0.82, 1]},
+  "edificio-estacion-corto": {"img": "edificio-estacion-largo__1037.png", "recorte": [0.62, 0.5, 0.82, 1]}
+}
