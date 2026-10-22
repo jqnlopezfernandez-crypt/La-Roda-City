@@ -14,3 +14,4 @@ instalacion-node.log
 test-results/
 dist-pagina/
 dist-pagina/
+__pycache__/
