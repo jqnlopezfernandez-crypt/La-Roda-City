@@ -111,9 +111,8 @@ def generar(parte, prueba=False):
         if os.path.exists(ruta):
             continue
         circular({"textura": "xy", "fachada": "x"}.get(p["tipo"], ""))
-        extra = {"ip_adapter_image": refs[p["ref"]]} if refs else {}
-        if refs and p.get("ref") not in refs:
-            extra = {"ip_adapter_image": next(iter(refs.values()))}
+        # lámina de estilo de la pieza (o la primera que haya si falta)
+        extra = {"ip_adapter_image": refs.get(p.get("ref"), next(iter(refs.values())))} if refs else {}
         def pintar():
             torch.cuda.empty_cache()
             return pipe(
