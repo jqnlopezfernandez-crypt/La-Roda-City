@@ -20,7 +20,12 @@ def pip(*args):
     return subprocess.run([sys.executable, "-m", "pip", "install", "-q", *args]).returncode == 0
 
 
-pip("-U", "diffusers", "accelerate", "safetensors")
+try:
+    import diffusers  # noqa: F401  (Kaggle ya lo trae: no se actualiza para no romper versiones)
+except ImportError:
+    pip("diffusers", "accelerate", "safetensors")
+# torchao preinstalado choca con algunas versiones de diffusers y no hace falta aquí
+subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"])
 tiene_rembg = pip("rembg[gpu]")
 
 import torch  # noqa: E402
