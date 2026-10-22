@@ -26,7 +26,6 @@ except ImportError:
     pip("diffusers", "accelerate", "safetensors")
 # torchao preinstalado choca con algunas versiones de diffusers y no hace falta aquí
 subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"])
-tiene_rembg = pip("rembg[gpu]")
 
 import torch  # noqa: E402
 from diffusers import StableDiffusionXLPipeline  # noqa: E402
@@ -80,19 +79,26 @@ for nombre, desc in PIEZAS.items():
 del pipe
 torch.cuda.empty_cache()
 
+def empaquetar():
+    with zipfile.ZipFile(f"{OUT}/la-roda-arte-pruebas.zip", "w") as z:
+        for ruta in glob.glob(f"{OUT}/originales/*.png") + glob.glob(f"{OUT}/sin-fondo/*.png"):
+            z.write(ruta, ruta.replace(f"{OUT}/", ""))
+
+
+empaquetar()
+print("LISTO (originales): la-roda-arte-pruebas.zip", flush=True)
+
+# Quitar el fondo al final: si falla, las imágenes ya están guardadas
 os.makedirs(f"{OUT}/sin-fondo", exist_ok=True)
-if tiene_rembg:
-    try:
-        from PIL import Image
-        from rembg import remove
+try:
+    if not pip("rembg", "onnxruntime"):
+        raise RuntimeError("no se pudo instalar rembg")
+    from PIL import Image
+    from rembg import remove
 
-        for ruta in sorted(glob.glob(f"{OUT}/originales/*.png")):
-            remove(Image.open(ruta)).save(ruta.replace("originales", "sin-fondo"))
-        print("Fondos quitados", flush=True)
-    except Exception as e:  # no es grave: el fondo se puede quitar después
-        print("No se pudo quitar el fondo:", e, flush=True)
-
-with zipfile.ZipFile(f"{OUT}/la-roda-arte-pruebas.zip", "w") as z:
-    for ruta in glob.glob(f"{OUT}/originales/*.png") + glob.glob(f"{OUT}/sin-fondo/*.png"):
-        z.write(ruta, ruta.replace(f"{OUT}/", ""))
-print("LISTO: la-roda-arte-pruebas.zip", flush=True)
+    for ruta in sorted(glob.glob(f"{OUT}/originales/*.png")):
+        remove(Image.open(ruta)).save(ruta.replace("originales", "sin-fondo"))
+    empaquetar()
+    print("LISTO (con fondos quitados): la-roda-arte-pruebas.zip", flush=True)
+except Exception as e:  # no es grave: el fondo se puede quitar después
+    print("No se pudo quitar el fondo:", e, flush=True)
