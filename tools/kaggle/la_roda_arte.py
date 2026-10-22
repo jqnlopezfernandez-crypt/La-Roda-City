@@ -35,7 +35,11 @@ print("GPU:", torch.cuda.get_device_name(0), flush=True)
 pipe = StableDiffusionXLPipeline.from_pretrained(
     "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16", use_safetensors=True
 ).to("cuda")
-pipe.enable_vae_slicing()
+# ahorro de memoria opcional (el nombre cambia entre versiones de diffusers)
+try:
+    pipe.vae.enable_slicing()
+except Exception:
+    pass
 
 # La "receta" de estilo, igual para todas las piezas para que sean coherentes
 ESTILO = (
