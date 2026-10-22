@@ -36,11 +36,18 @@ def trabajos():
 
 def prompt_de(p):
     e = SPEC["estilo"]
-    # el sujeto va primero y el estilo después: lo que pase de 77 tokens se pierde por el final
+    # lo importante va primero: lo que pase de 77 tokens se pierde por el final
+    if p["tipo"] == "fachada":
+        return f"orthographic flat front elevation drawing, {p['prompt']}, {e['fachada']}, {e['base']}, {e[p['nivel']]}"
     return f"{p['prompt']}, {e[p['tipo']]}, {e['base']}, {e[p['nivel']]}"
 
 
-PRUEBA = ["suelo-empedrado", "teja-0", "fachada-1", "esquina", "naranjo", "farola", "banco", "edificio-ayuntamiento-largo"]
+def negativo_de(p):
+    e = SPEC["estilo"]
+    return e["negativo_sprite"] if p["tipo"] == "sprite" else e["negativo"]
+
+
+PRUEBA = ["fachada-0", "fachada-3", "esquina", "farola", "olivo", "edificio-iglesia-corto", "suelo-cesped", "teja-1"]
 
 
 def generar(parte, prueba=False):
@@ -71,7 +78,7 @@ def generar(parte, prueba=False):
         circular(p["tipo"] == "textura")
         img = pipe(
             prompt=prompt_de(p),
-            negative_prompt=SPEC["estilo"]["negativo"],
+            negative_prompt=negativo_de(p),
             num_inference_steps=28,
             guidance_scale=6.0,
             width=p["w"],
