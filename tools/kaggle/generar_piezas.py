@@ -59,7 +59,7 @@ def generar(parte, prueba=False):
 
     pipe = StableDiffusionXLPipeline.from_pretrained(
         "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16", use_safetensors=True
-    ).to("cuda")
+    )
     pipe.set_progress_bar_config(disable=True)
     refs = {}
     if any(p.get("ref") for p in SPEC["piezas"]):
@@ -71,6 +71,10 @@ def generar(parte, prueba=False):
         for f in glob.glob(f"{REFS}/*.jpg"):
             refs[os.path.basename(f)[:-4]] = Image.open(f).convert("RGB")
         print("láminas de estilo:", sorted(refs), flush=True)
+        # con el IP-Adapter no cabe todo en los 15 GB de la T4: cada parte sube a la GPU solo al usarse
+        pipe.enable_model_cpu_offload()
+    else:
+        pipe.to("cuda")
     import torch.nn.functional as F
 
     convs = [m for m in list(pipe.unet.modules()) + list(pipe.vae.modules()) if isinstance(m, torch.nn.Conv2d)]
@@ -111,6 +115,7 @@ def generar(parte, prueba=False):
         extra = {"ip_adapter_image": refs[p["ref"]]} if refs else {}
         if refs and p.get("ref") not in refs:
             extra = {"ip_adapter_image": next(iter(refs.values()))}
+        torch.cuda.empty_cache()
         img = pipe(
             **extra,
             prompt=prompt_de(p),
