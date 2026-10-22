@@ -38,7 +38,7 @@ def prompt_de(p):
     e = SPEC["estilo"]
     # lo importante va primero: lo que pase de 77 tokens se pierde por el final
     if p["tipo"] == "fachada":
-        return f"orthographic flat front elevation drawing, {p['prompt']}, {e['fachada']}, {e['base']}, {e[p['nivel']]}"
+        return f"flat straight-on front view, {p['prompt']}, {e['fachada']}, {e['base']}, {e[p['nivel']]}"
     return f"{p['prompt']}, {e[p['tipo']]}, {e['base']}, {e[p['nivel']]}"
 
 
@@ -47,7 +47,7 @@ def negativo_de(p):
     return e["negativo_sprite"] if p["tipo"] == "sprite" else e["negativo"]
 
 
-PRUEBA = ["fachada-0", "fachada-3", "esquina", "farola", "olivo", "edificio-iglesia-corto", "suelo-cesped", "teja-1"]
+PRUEBA = ["fachada-0", "fachada-1", "fachada-3", "edificio-ayuntamiento-largo"]
 
 
 def generar(parte, prueba=False):
@@ -58,11 +58,30 @@ def generar(parte, prueba=False):
         "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16", use_safetensors=True
     ).to("cuda")
     pipe.set_progress_bar_config(disable=True)
-    convs = [m for m in list(pipe.unet.modules()) + list(pipe.vae.modules()) if isinstance(m, torch.nn.Conv2d)]
+    import torch.nn.functional as F
 
-    def circular(on):  # texturas repetibles: el borde izquierdo continúa en el derecho (y arriba/abajo)
+    convs = [m for m in list(pipe.unet.modules()) + list(pipe.vae.modules()) if isinstance(m, torch.nn.Conv2d)]
+    originales = {id(m): m.forward for m in convs}
+
+    def solo_x(m):
+        """Convolución que da la vuelta solo en horizontal (tiras de fachadas sin costura a los lados)."""
+        ph, pw = m.padding if isinstance(m.padding, tuple) else (m.padding, m.padding)
+
+        def fwd(x):
+            x = F.pad(x, (pw, pw, 0, 0), mode="circular")
+            x = F.pad(x, (0, 0, ph, ph))
+            return F.conv2d(x, m.weight, m.bias, m.stride, 0, m.dilation, m.groups)
+
+        return fwd
+
+    def circular(modo):  # "xy": texturas repetibles; "x": tiras de fachada; "": normal
         for m in convs:
-            m.padding_mode = "circular" if on else "zeros"
+            m.forward = originales[id(m)]
+            m.padding_mode = "zeros"
+            if modo == "xy":
+                m.padding_mode = "circular"
+            elif modo == "x" and m.padding not in (0, (0, 0)):
+                m.forward = solo_x(m)
 
     os.makedirs(f"{OUT}/candidatas", exist_ok=True)
     lista = trabajos()
@@ -75,7 +94,7 @@ def generar(parte, prueba=False):
         ruta = f"{OUT}/candidatas/{p['clave']}__{semilla}.png"
         if os.path.exists(ruta):
             continue
-        circular(p["tipo"] == "textura")
+        circular({"textura": "xy", "fachada": "x"}.get(p["tipo"], ""))
         img = pipe(
             prompt=prompt_de(p),
             negative_prompt=negativo_de(p),

@@ -5,7 +5,7 @@
   "mapa": "clean simple shapes, low detail",
   "singular": "charming details, clear shapes",
   "sprite": "single isolated game sprite, three-quarter top-down view, plain white background",
-  "fachada": "wall fills the whole frame edge to edge",
+  "fachada": "flat wall, no perspective, no sky",
   "textura": "seamless tileable texture, flat top-down view, even lighting",
   "negativo": "photo, realistic, 3d render, perspective, sky, clouds, street, road, ground, building corner, text, letters, watermark, blurry, cracks, grime, bright pastel colors, cluttered, people, frame, border",
   "negativo_sprite": "photo, realistic, 3d render, text, letters, watermark, blurry, scenery, background objects, shadow on wall, bright pastel colors, cluttered, people, frame, border, multiple objects"
@@ -98,7 +98,7 @@
    "w": 1216,
    "h": 832,
    "variantes": 4,
-   "prompt": "whitewashed Andalusian one-storey house front, wooden door, barred window, tile eave on top"
+   "prompt": "continuous row of whitewashed Andalusian one-storey house fronts, wooden doors, barred windows, red tile eaves along the top"
   },
   {
    "clave": "fachada-1",
@@ -107,7 +107,7 @@
    "w": 1216,
    "h": 832,
    "variantes": 4,
-   "prompt": "whitewashed two-storey Andalusian house front, iron balcony, two windows, door, tile eave on top"
+   "prompt": "continuous row of whitewashed two-storey Andalusian house fronts, iron balconies, doors, red tile eaves along the top"
   },
   {
    "clave": "fachada-2",
@@ -116,7 +116,7 @@
    "w": 1216,
    "h": 832,
    "variantes": 4,
-   "prompt": "cream Andalusian house front with ochre plinth, green door, shuttered windows, tile eave on top"
+   "prompt": "continuous row of cream Andalusian house fronts, ochre plinth, green doors, shuttered windows, red tile eaves along the top"
   },
   {
    "clave": "fachada-3",
@@ -125,7 +125,7 @@
    "w": 1216,
    "h": 832,
    "variantes": 4,
-   "prompt": "small village shop front, white walls, striped awning, shop window, door, tile eave on top"
+   "prompt": "continuous row of small village shop fronts, white walls, striped awnings, shop windows, red tile eaves along the top"
   },
   {
    "clave": "fachada-4",
@@ -134,7 +134,7 @@
    "w": 1216,
    "h": 832,
    "variantes": 4,
-   "prompt": "whitewashed house front with large wooden gate and flower pots, tile eave on top"
+   "prompt": "continuous row of whitewashed house fronts, big wooden gates, flower pots, red tile eaves along the top"
   },
   {
    "clave": "esquina",
@@ -143,7 +143,7 @@
    "w": 640,
    "h": 1024,
    "variantes": 4,
-   "prompt": "narrow whitewashed house corner wall, one small barred window, tile eave on top"
+   "prompt": "whitewashed wall with one small barred window, red tile eave along the top"
   },
   {
    "clave": "naranjo",
