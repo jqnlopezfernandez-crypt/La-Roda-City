@@ -54,10 +54,11 @@ export const MISSIONS: Mission[] = [
   },
   {
     id: "parque",
-    nombre: "Peces y canasta en el Parque Europa",
+    nombre: "Peces y canasta en los parques",
     pasos: [
-      { lugares: [27], texto: "Echa comida a los peces (toca el estanque 6 veces).", juego: "tocar", minMs: 1500 },
-      { lugares: [27], texto: "Encesta: suelta cuando la barra esté en la zona verde.", juego: "lanzar", minMs: 1000 },
+      // los peces están en el estanque del Parque Peces (corrección de Joaquín, 22-10-2026)
+      { lugares: [1], texto: "Echa comida a los peces del Parque Peces (toca el estanque 6 veces).", juego: "tocar", minMs: 1500 },
+      { lugares: [27], texto: "En el Parque Europa, encesta: suelta cuando la barra esté en la zona verde.", juego: "lanzar", minMs: 1000 },
     ],
   },
   {

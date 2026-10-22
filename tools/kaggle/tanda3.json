@@ -1,0 +1,215 @@
+{
+ "estilo": {
+  "base": "hand-drawn cartoon game illustration, thick black ink outlines, muted earthy colors, soft shading",
+  "mapa": "clean simple shapes",
+  "singular": "clear readable shapes",
+  "escena": "game background, no characters, empty center",
+  "sprite": "single isolated object, centered, plain white background",
+  "fachada": "flat front elevation of a wall filling the whole image, no sky, no roof, no ground",
+  "textura": "seamless tileable texture, flat top-down view",
+  "negativo": "photo, realistic, 3d render, text, letters, words, watermark, signature, blurry, people, frame, border, cluttered",
+  "negativo_sprite": "photo, realistic, 3d render, text, letters, words, watermark, blurry, scenery, table, background objects, people, frame, border, multiple objects"
+ },
+ "piezas": [
+  {
+   "clave": "suelo-cesped",
+   "tipo": "textura",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "lush green park lawn grass with tiny clover leaves"
+  },
+  {
+   "clave": "suelo-campo",
+   "tipo": "textura",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "dry yellow green meadow with small grass tufts, Andalusian countryside"
+  },
+  {
+   "clave": "suelo-tierra",
+   "tipo": "textura",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "dry packed ochre dirt ground with a few small pebbles"
+  },
+  {
+   "clave": "agua-rio",
+   "tipo": "textura",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "calm river water seen from above, soft green blue ripples"
+  },
+  {
+   "clave": "agua-piscina",
+   "tipo": "textura",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "clear turquoise swimming pool water seen from above, light ripples"
+  },
+  {
+   "clave": "arriate",
+   "tipo": "textura",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "flower bed seen from above, red and pink geraniums and green leaves"
+  },
+  {
+   "clave": "canas",
+   "tipo": "sprite",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "clump of tall green river reeds"
+  },
+  {
+   "clave": "nenufar",
+   "tipo": "sprite",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "three green lily pads with one pink water lily flower, top view"
+  },
+  {
+   "clave": "piedras",
+   "tipo": "sprite",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "small cluster of smooth grey river stones"
+  },
+  {
+   "clave": "seto",
+   "tipo": "sprite",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "round trimmed green hedge bush"
+  },
+  {
+   "clave": "pino",
+   "tipo": "sprite",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "Mediterranean umbrella pine tree, round flat crown"
+  },
+  {
+   "clave": "olivo-campo",
+   "tipo": "sprite",
+   "nivel": "mapa",
+   "ref": "mapa",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "old olive tree with twisted trunk and silver green leaves"
+  },
+  {
+   "clave": "edificio-ayuntamiento-largo",
+   "tipo": "fachada",
+   "nivel": "singular",
+   "ref": "edificio",
+   "w": 1536,
+   "h": 512,
+   "prompt": "front of an old Andalusian town hall, whitewashed walls, arched portico with three arches, iron balconies, Spanish flag"
+  },
+  {
+   "clave": "edificio-ayuntamiento-corto",
+   "tipo": "fachada",
+   "nivel": "singular",
+   "ref": "edificio",
+   "w": 1024,
+   "h": 960,
+   "prompt": "side wall of an old whitewashed Andalusian town hall, two windows with iron grilles"
+  },
+  {
+   "clave": "edificio-iglesia-largo",
+   "tipo": "fachada",
+   "nivel": "singular",
+   "ref": "edificio",
+   "w": 1536,
+   "h": 576,
+   "prompt": "side wall of an old whitewashed Andalusian church, stone buttresses, small arched windows"
+  },
+  {
+   "clave": "edificio-iglesia-corto",
+   "tipo": "fachada",
+   "nivel": "singular",
+   "ref": "edificio",
+   "w": 1024,
+   "h": 1088,
+   "prompt": "front of a whitewashed Andalusian church, big arched wooden door, round rose window"
+  },
+  {
+   "clave": "pieza-moneda",
+   "tipo": "sprite",
+   "ref": "mision",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "plain shiny gold coin with an embossed star, no face"
+  },
+  {
+   "clave": "pieza-pastilla",
+   "tipo": "sprite",
+   "ref": "mision",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "one white round medicine tablet pill"
+  },
+  {
+   "clave": "pieza-capsula",
+   "tipo": "sprite",
+   "ref": "mision",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "one red and white medicine capsule"
+  },
+  {
+   "clave": "pieza-salabre",
+   "tipo": "sprite",
+   "ref": "mision",
+   "w": 768,
+   "h": 1024,
+   "prompt": "swimming pool skimmer net with a long pole"
+  },
+  {
+   "clave": "pieza-cabeza",
+   "tipo": "sprite",
+   "ref": "mision",
+   "w": 1024,
+   "h": 1024,
+   "prompt": "white marble head of a bearded saint statue with closed eyes"
+  },
+  {
+   "clave": "pieza-carne-kebab",
+   "tipo": "sprite",
+   "ref": "mision",
+   "w": 768,
+   "h": 1024,
+   "prompt": "vertical doner kebab meat cone on a metal skewer, roasted brown"
+  },
+  {
+   "clave": "escena-peluqueria",
+   "tipo": "escena",
+   "ref": "mision",
+   "w": 1216,
+   "h": 832,
+   "prompt": "old barbershop floor seen from above, black and white checkered tiles, chair legs at the edges"
+  }
+ ]
+}
