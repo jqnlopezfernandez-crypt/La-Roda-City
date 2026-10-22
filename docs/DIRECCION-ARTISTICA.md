@@ -52,6 +52,19 @@ Comparado en el juego con capturas de antes y después:
 - Siguiente intento para fachadas y edificios: dar al modelo una imagen de referencia del estilo
   (IP-Adapter, Apache 2.0) con las láminas de Joaquín, en lugar de describirlo solo con palabras.
 
+## Segunda tanda: misiones y edificios con estilo de referencia (22-10-2026)
+- Encargo `tools/kaggle/misiones.json`: 14 escenas de minijuego, 19 piezas (vasos, botellas, balones, pez,
+  cuchillo, monedas…), fachadas del Ayuntamiento, la Iglesia, la Estación y el Cuartel, y naranjo/olivo.
+- El estilo se da con una imagen (IP-Adapter, InstantStyle, solo bloques de estilo) sacada de las láminas de
+  Joaquín. Las láminas se escriben en el cuaderno de Kaggle y no se publican en el repositorio.
+- Con el IP-Adapter el modelo no cabe entero en la T4 (15 GB): las partes se suben a la GPU solo al usarse
+  (`enable_model_cpu_offload`).
+- Prueba con 4 piezas (cubata, vaso, barra del bar, Ayuntamiento): ahora sí sale dibujo animado con tinta,
+  cal y arcos, mucho más cerca de las láminas que la primera tanda. Sale algo apagado (sepia): al integrarlo
+  se sube el color con `entonar()`.
+- Los minijuegos usarán `src/art/pintadoMg.ts`: fondo pintado (`pintado/mg/escena-*.jpg`) y piezas con
+  transparencia (`pintado/mg/pieza-*.png`), con el SVG de siempre como reserva si falta una imagen.
+
 ## Licencias
 - SDXL base 1.0: CreativeML Open RAIL++-M (uso comercial permitido, con restricciones de uso).
 - rembg + u2net: Apache 2.0. No usar el modelo «bria-rmbg» (no comercial).
