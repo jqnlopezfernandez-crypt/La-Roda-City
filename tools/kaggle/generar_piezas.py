@@ -40,7 +40,10 @@ def prompt_de(p):
     return f"{p['prompt']}, {e[p['tipo']]}, {e['base']}, {e[p['nivel']]}"
 
 
-def generar(parte):
+PRUEBA = ["suelo-empedrado", "teja-0", "fachada-1", "esquina", "naranjo", "farola", "banco", "edificio-ayuntamiento-largo"]
+
+
+def generar(parte, prueba=False):
     import torch
     from diffusers import StableDiffusionXLPipeline
 
@@ -56,8 +59,11 @@ def generar(parte):
 
     os.makedirs(f"{OUT}/candidatas", exist_ok=True)
     lista = trabajos()
+    if prueba:
+        vistas = set()
+        lista = [(p, s) for p, s in lista if p["clave"] in PRUEBA and not (p["clave"] in vistas or vistas.add(p["clave"]))]
     for i, (p, semilla) in enumerate(lista):
-        if i % 2 != parte:
+        if not prueba and i % 2 != parte:
             continue
         ruta = f"{OUT}/candidatas/{p['clave']}__{semilla}.png"
         if os.path.exists(ruta):
@@ -122,6 +128,9 @@ def post():
 
 if __name__ == "__main__":
     if sys.argv[1] == "post":
+        post()
+    elif sys.argv[1] == "prueba":
+        generar(0, prueba=True)
         post()
     else:
         generar(int(sys.argv[1]))
