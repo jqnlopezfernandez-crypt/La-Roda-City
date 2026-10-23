@@ -103,6 +103,10 @@ Página jugable (sin servidor, modo en solitario): artifact "La Roda City" — s
 - La misión de los peces pasa al Parque Peces (la canasta sigue en el Parque Europa).
 - Probado: minijuegos 18/18, 73 pruebas Vitest, capturas del mapa en bordes, campo, río, piscina y parques.
 
+- 23-10-2026 · Congelones tras una misión arreglados: la guía de ruta costaba hasta 2,4 s en parques (sobre todo
+  Parque Peces); ahora 1,5 ms de media. Los minijuegos paran sus animaciones al cerrarse. Probado: Vitest 73/73,
+  minijuegos e2e 18/18, `tests/e2e/fluidez.mjs` OK en los 4 puntos (antes 1,3–1,8 s de fotograma en Parque Peces).
+
 ## Fase 7 — Publicación 🟡 preparada · ⛔ despliegue (necesita cuentas)
 - ✅ `.github/workflows/pages.yml` (cliente → GitHub Pages con `VITE_SERVER_URL`), `Dockerfile`,
   `render.yaml`, `/salud`, `package-lock.json` del PC (incluye dependencias de Linux).
