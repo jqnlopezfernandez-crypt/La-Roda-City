@@ -53,42 +53,62 @@ function partial(edge: number, seg: number, q: Vec2, fromStart: boolean): Vec2[]
  * Si el primer o el último tramo recto no es transitable (p. ej. el destino está
  * dentro de un parque), se intercala un punto de paso.
  */
-export function findPath(from: Vec2, to: Vec2): Path {
+export function findPath(from: Vec2, to: Vec2, opts: { skipHead?: boolean } = {}): Path {
   const route = streetRoute(from, to);
   if (!Number.isFinite(route.length) || route.points.length < 3) return route;
   const pts = route.points;
   const detour = (a: Vec2, b: Vec2): Vec2[] => {
     if (segmentWalkable(a, b, RADIUS)) return [];
-    const key = `${Math.round(a.x)},${Math.round(a.y)}>${Math.round(b.x)},${Math.round(b.y)}`;
+    // celdas de 8 px: el jugador que se mueve un poco reutiliza el desvío ya calculado
+    const key = `${Math.round(a.x / 8)},${Math.round(a.y / 8)}>${Math.round(b.x / 8)},${Math.round(b.y / 8)}`;
     const cached = detourCache.get(key);
     if (cached) return cached;
     const found = findWaypoint(a, b);
-    if (detourCache.size > 200) detourCache.clear();
+    if (detourCache.size > 400) detourCache.clear();
     detourCache.set(key, found);
     return found;
   };
-  const head = detour(pts[0], pts[1]);
+  // skipHead: la guía de puntos en pantalla no necesita el desvío desde la posición exacta del
+  // jugador (cambia en cada paso y recalcularlo cuesta); empieza en la calle más cercana
+  const head = opts.skipHead ? [] : detour(pts[0], pts[1]);
   const tail = detour(pts[pts.length - 2], pts[pts.length - 1]);
   return { points: [pts[0], ...head, ...pts.slice(1, -1), ...tail, pts[pts.length - 1]], length: route.length };
 }
 
 const detourCache = new Map<string, Vec2[]>();
 
-/** Busca en una rejilla alrededor del tramo un punto desde el que se vean ambos extremos. */
+/** Longitud de la ruta por las calles sin calcular desvíos (barata: para elegir el destino más cercano). */
+export function routeLength(from: Vec2, to: Vec2): number {
+  return streetRoute(from, to).length;
+}
+
+/**
+ * Busca en una rejilla alrededor del tramo un punto desde el que se vean ambos extremos.
+ * Los candidatos se prueban de más corto a más largo y se para en el primero que vale:
+ * comprobar un tramo es caro (≈ 0,5 ms) y antes se probaban los ~1000 de la rejilla,
+ * lo que congelaba el juego unos segundos dentro de parques y plazas.
+ */
 function findWaypoint(a: Vec2, b: Vec2): Vec2[] {
   const cx = (a.x + b.x) / 2;
   const cy = (a.y + b.y) / 2;
   const reach = Math.min(160, Math.hypot(b.x - a.x, b.y - a.y) / 2 + 60);
-  let best: { w: Vec2; len: number } | null = null;
-  for (let dy = -reach; dy <= reach; dy += 10) {
-    for (let dx = -reach; dx <= reach; dx += 10) {
+  const seen = new Set<string>();
+  const candidates: { w: Vec2; len: number }[] = [];
+  for (let dy = -reach; dy <= reach; dy += 16) {
+    for (let dx = -reach; dx <= reach; dx += 16) {
       const w = clampToStreets({ x: cx + dx, y: cy + dy }, RADIUS + 2);
-      const len = Math.hypot(w.x - a.x, w.y - a.y) + Math.hypot(b.x - w.x, b.y - w.y);
-      if (best && len >= best.len) continue;
-      if (segmentWalkable(a, w, RADIUS) && segmentWalkable(w, b, RADIUS)) best = { w, len };
+      const key = `${Math.round(w.x / 4)},${Math.round(w.y / 4)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push({ w, len: Math.hypot(w.x - a.x, w.y - a.y) + Math.hypot(b.x - w.x, b.y - w.y) });
     }
   }
-  return best ? [best.w] : [];
+  candidates.sort((p, q) => p.len - q.len);
+  for (let i = 0; i < candidates.length && i < 60; i++) {
+    const { w } = candidates[i];
+    if (segmentWalkable(a, w, RADIUS) && segmentWalkable(w, b, RADIUS)) return [w];
+  }
+  return [];
 }
 
 /** Ruta por la red de calles (sin desvíos), Dijkstra desde los extremos del tramo de salida. */

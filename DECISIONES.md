@@ -41,6 +41,17 @@
 - El vaso del cubata se pinta dos veces (semitransparente debajo y en multiplicar encima) para que el líquido se vea
   dentro del cristal.
 
+## Congelones al acabar una misión (23-10-2026)
+- Causa: la guía de puntos hacia la misión se recalculaba cada 0,6 s con la ruta completa a todas las misiones
+  pendientes, y dentro de parques y plazas cada ruta buscaba un desvío probando ~1000 puntos (cada prueba ≈ 0,5 ms).
+  Al pasar los peces al Parque Peces se notaba mucho: hasta 1,3–1,8 s de pantalla congelada (medido en el navegador).
+- Arreglo: se elige la misión más cercana con la longitud barata (`routeLength`) y solo para esa se calcula la ruta;
+  la guía no calcula el desvío desde la posición exacta del jugador; los desvíos prueban candidatos de más corto a
+  más largo y paran en el primero que vale. Coste medio por recálculo: de 182 ms a 1,5 ms.
+- Además: los bucles de animación de la canasta, los penaltis, rezar y el cubata se paran al cerrar con la ✕
+  (antes seguían para siempre y se acumulaban), y cerrar un minijuego dos veces ya no deja el estado a medias.
+- Prueba nueva: `node tests/e2e/fluidez.mjs` (fotograma más largo moviéndose por parques).
+
 ## Limitaciones conocidas
 - **Escala real desconocida.** No hay barra de escala legible; las distancias del juego no son metros.
 - **Edificios fuera de las manzanas cerradas**: el dibujo no los incluye, así que allí se ve campo.

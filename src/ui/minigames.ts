@@ -72,6 +72,7 @@ function holdGame({ body, done, say, missionId }: MiniGameContext, ms: number) {
     wrap.style.setProperty("--k", String(k));
   };
   const tick = () => {
+    if (!body.isConnected) return;
     const k = Math.min(1, (performance.now() - startedAt) / ms);
     setProgress(k);
     if (k >= 1) return done();
@@ -305,6 +306,8 @@ function throwGame({ body, done, say }: MiniGameContext) {
   let direction = 1;
   let frame = 0;
   const animate = () => {
+    // el bucle se para solo si se cierra el minijuego con la ✕ (antes seguía para siempre)
+    if (!body.isConnected) return;
     position += direction * 0.012;
     if (position > 1 || position < 0) direction *= -1;
     marker.style.left = `${Math.max(0, Math.min(1, position)) * 100}%`;
@@ -345,6 +348,7 @@ function penaltyGame({ body, done, say }: MiniGameContext) {
   let frame = 0;
   let shooting = false;
   const animate = () => {
+    if (!body.isConnected) return;
     if (!shooting) {
       keeperPos += direction * speed;
       if (keeperPos > 0.85 || keeperPos < 0.15) {
@@ -535,6 +539,7 @@ function cubataGame({ body, done, say }: MiniGameContext) {
   let lastFrameAt = 0;
   let pouring: "ron" | "cola" | null = null;
   const pourFrame = (now: number) => {
+    if (!body.isConnected) return;
     const dt = Math.min(50, now - lastFrameAt) / 1e3;
     lastFrameAt = now;
     if (pouring === "ron") {
@@ -787,7 +792,11 @@ export function openMiniGame(options: MiniGameOptions): () => void {
   const body = overlay.querySelector<HTMLElement>(".mg-body")!;
   const message = overlay.querySelector<HTMLElement>(".mg-msg")!;
   let finished = false;
+  let closed = false;
+  // se puede llamar varias veces (✕, fin del juego, cambio de fase): solo cuenta la primera
   const close = () => {
+    if (closed) return;
+    closed = true;
     overlay.remove();
     options.onClose();
   };
@@ -798,7 +807,7 @@ export function openMiniGame(options: MiniGameOptions): () => void {
     missionId: options.missionId,
     say: (msg) => (message.textContent = msg),
     done: () => {
-      if (finished) return;
+      if (finished || closed) return;
       finished = true;
       message.textContent = "\xA1Hecho!";
       // Sello de "¡HECHO!" que cae sobre el juego

@@ -7,7 +7,7 @@ import { createAmbience } from "./ambience";
 import { Character, PALETTE } from "./characters";
 import { ambient, music, sfx } from "./sounds";
 import { ACTIVE_MISSIONS, MISSION_RANGE, missionById, pickTasks, type AssignedTask } from "../../shared/game/missions";
-import { findPath, type Path } from "../../shared/map/pathfinding";
+import { findPath, routeLength, type Path } from "../../shared/map/pathfinding";
 import { input } from "./inputState";
 import { FONT } from "./theme";
 import { RIVER_WIDTH, riverLines } from "../../shared/map/river";
@@ -1011,14 +1011,20 @@ export class TownScene extends Phaser.Scene {
     const dots: Vec2[] = [];
     if (this.phase === "partida") {
       const here = { x: this.player.x, y: this.player.y };
-      let best: Path | null = null;
+      // se elige la misión más cercana con la longitud barata y solo para esa se calcula la ruta completa
+      let target: Vec2 | null = null;
+      let targetLen = Infinity;
       for (const t of list) {
         if (t.done) continue;
         const poi = this.pois.find((p) => p.poi.number === t.lugar);
         if (!poi) continue;
-        const path = findPath(here, poi.access);
-        if (!best || path.length < best.length) best = path;
+        const len = routeLength(here, poi.access);
+        if (len < targetLen) {
+          targetLen = len;
+          target = poi.access;
+        }
       }
+      const best: Path | null = target ? findPath(here, target, { skipHead: true }) : null;
       if (best && best.length > MISSION_RANGE) {
         // puntos cada 30 px a lo largo de la ruta (como mucho 120)
         let acc = 0;
